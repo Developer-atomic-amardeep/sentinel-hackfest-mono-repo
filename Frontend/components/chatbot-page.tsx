@@ -1,3 +1,4 @@
+
 'use client'
 
 import React, { useEffect, useRef, useState } from "react"
@@ -302,30 +303,78 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
 
       if (!saveResponse.ok) throw new Error("Failed to save message")
 
-      // Simulated bot response — replace with real AI backend call if you have one
-      const botMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: `Thank you for your message: "${messageText}". Our AI support team is analyzing your request and will provide a solution shortly. In the meantime, you can share any additional details or upload documents to help us assist you faster.`,
-        sender: "bot",
-        timestamp: new Date(),
-      }
-
-      const finalMessages = [...updatedMessages, botMessage]
-      setMessages(finalMessages)
-
-      await fetch(`${API_URL}/chat-histories/${currentChatId}/messages`, {
+      // STREAMING: connect to analyze-query-stream SSE endpoint
+      const streamRes = await fetch(`${API_URL}/analyze-query-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          role: "assistant",
-          content: botMessage.text,
-        }),
+        body: JSON.stringify({ user_query: messageText }),
       })
 
-      setChatSessions((prev) =>
-        prev.map((chat) => (chat.id === currentChatId ? { ...chat, messages: finalMessages } : chat))
-      )
+      if (!streamRes.ok) {
+        throw new Error("Streaming endpoint returned an error")
+      }
+
+      const reader = streamRes.body!.getReader()
+      const decoder = new TextDecoder()
+
+      let greetingShown = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split("\n")
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue
+          try {
+            const data = JSON.parse(line.slice(6))
+
+            // Display greeting message (once)
+            if (data.greeting_message && !greetingShown) {
+              greetingShown = true
+              const greetMessage: ChatMessage = {
+                id: (Date.now() + Math.random()).toString(),
+                text: data.greeting_message,
+                sender: "bot",
+                timestamp: new Date(),
+              }
+              setMessages((prev) => [...prev, greetMessage])
+              scrollToBottom()
+            }
+
+            // Display final response (when available)
+            if (data.final_response) {
+              const botMessage: ChatMessage = {
+                id: (Date.now() + Math.random() + 1).toString(),
+                text: data.final_response,
+                sender: "bot",
+                timestamp: new Date(),
+              }
+
+              setMessages((prev) => [...prev, botMessage])
+
+              // Persist bot message
+              await fetch(`${API_URL}/chat-histories/${currentChatId}/messages`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  role: "assistant",
+                  content: data.final_response,
+                }),
+              })
+
+              setIsLoading(false)
+              scrollToBottom()
+            }
+          } catch (err) {
+            console.warn("Failed to parse SSE chunk", err)
+          }
+        }
+      }
     } catch (error) {
+      console.error("Error sending message:", error)
       toast({
         title: "Error",
         description: "Failed to send message",
