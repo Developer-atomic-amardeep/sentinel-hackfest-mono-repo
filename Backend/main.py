@@ -1,14 +1,15 @@
 import json
 import os
 import sqlite3
-import time
+import json
 from typing import List
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from utils.database import get_db_connection, initialize_database, UserRequest, UserResponse
+
+# Local imports
 from utils.database import (
     get_db_connection,
     initialize_database,
@@ -206,9 +207,6 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
     )
 
 
-# -------------------------------
-#     VALIDATE + CREATE USER
-# -------------------------------
 @app.post("/validate-users", response_model=UserResponse)
 def validate_users(user: UserRequest):
     conn = get_db_connection()
