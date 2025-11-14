@@ -1,7 +1,7 @@
 import json
 import os
 import sqlite3
-import json
+import time
 from typing import List
 from contextlib import asynccontextmanager
 
@@ -91,6 +91,7 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
     
     Supervisor node returns:
     - supervisor_messages: Messages from supervisor
+    - greeting_message: Initial greeting message for the user (when first called)
     - next_agent: Routing decision (when available)
     
     Triage node returns:
@@ -125,7 +126,8 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
                 "escalation_messages": [],
                 "analysis": None,
                 "next_agent": None,
-                "final_response": None
+                "final_response": None,
+                "greeting_message": None
             }
             
             # Stream the workflow execution
@@ -142,6 +144,9 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
                     # Add node-specific data based on which agent is executing
                     if node_name == "supervisor":
                         event_data["supervisor_messages"] = state_update.get("supervisor_messages", [])
+                        # Include greeting message if available
+                        if state_update.get("greeting_message"):
+                            event_data["greeting_message"] = state_update.get("greeting_message")
                         # Include routing decision if available
                         if state_update.get("next_agent"):
                             event_data["next_agent"] = state_update.get("next_agent")
