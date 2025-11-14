@@ -2,12 +2,15 @@ import json
 import os
 import sqlite3
 import time
-from typing import List
+import shutil
+from typing import List, Optional
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 # Local imports
 from utils.database import (
@@ -35,6 +38,25 @@ try:
     from agora_token_builder import RtcTokenBuilder
 except ImportError:
     RtcTokenBuilder = None
+
+
+# -------------------------------
+#  FILE UPLOAD CONFIGURATION
+# -------------------------------
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'.pdf', '.doc', '.docx', '.txt', '.png', '.jpg', '.jpeg', '.gif', '.webp'}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+# -------------------------------
+#  ENHANCED REQUEST MODEL
+# -------------------------------
+class AnalyzeQueryRequestWithFiles(BaseModel):
+    user_query: str
+    file_paths: Optional[List[str]] = []
 
 
 # -------------------------------
@@ -69,54 +91,193 @@ def health_check():
     return {"status": "healthy", "message": "Server is running"}
 
 
+# -------------------------------
+#      FILE UPLOAD ENDPOINT
+# -------------------------------
+@app.post("/upload-files")
+async def upload_files(files: List[UploadFile] = File(...)):
+    """
+    Upload multiple files and return their paths.
+    
+    Accepts: PDF, DOC, DOCX, TXT, PNG, JPG, JPEG, GIF, WEBP
+    Max size per file: 10 MB
+    
+    Returns:
+        {
+            "success": true,
+            "file_paths": ["uploads/file1.pdf", "uploads/file2.png"],
+            "files_info": [
+                {"name": "file1.pdf", "size": 12345, "path": "uploads/file1.pdf"},
+                ...
+            ]
+        }
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    
+    uploaded_files = []
+    file_paths = []
+    
+    for file in files:
+        # Validate file extension
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"File type {file_ext} not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        file_size = len(content)
+        
+        # Validate file size
+        if file_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File {file.filename} exceeds maximum size of {MAX_FILE_SIZE / (1024*1024)} MB"
+            )
+        
+        # Generate unique filename
+        timestamp = int(time.time() * 1000)
+        safe_filename = f"{timestamp}_{file.filename}"
+        file_path = UPLOAD_DIR / safe_filename
+        
+        # Save file
+        try:
+            with open(file_path, "wb") as f:
+                f.write(content)
+            
+            uploaded_files.append({
+                "name": file.filename,
+                "size": file_size,
+                "path": str(file_path)
+            })
+            file_paths.append(str(file_path))
+            
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to save file {file.filename}: {str(e)}"
+            )
+    
+    return {
+        "success": True,
+        "file_paths": file_paths,
+        "files_info": uploaded_files
+    }
+
+
+# -------------------------------
+#   HELPER: EXTRACT FILE CONTENT
+# -------------------------------
+def extract_file_content(file_path: str) -> str:
+    """
+    Extract text content from uploaded files.
+    
+    For images: returns file name and type
+    For text/PDF/docs: attempts to extract text content
+    """
+    try:
+        file_path_obj = Path(file_path)
+        
+        if not file_path_obj.exists():
+            return f"[File not found: {file_path}]"
+        
+        file_ext = file_path_obj.suffix.lower()
+        
+        # Handle text files
+        if file_ext == '.txt':
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                return f"[Text file: {file_path_obj.name}]\n{content[:5000]}"  # Limit to 5000 chars
+        
+        # Handle images (just return metadata)
+        elif file_ext in {'.png', '.jpg', '.jpeg', '.gif', '.webp'}:
+            file_size = file_path_obj.stat().st_size
+            return f"[Image file: {file_path_obj.name}, Size: {file_size} bytes]"
+        
+        # Handle PDF files (requires PyPDF2 or similar)
+        elif file_ext == '.pdf':
+            try:
+                import PyPDF2
+                with open(file_path, 'rb') as f:
+                    pdf_reader = PyPDF2.PdfReader(f)
+                    text = ""
+                    for page_num in range(min(10, len(pdf_reader.pages))):  # First 10 pages
+                        text += pdf_reader.pages[page_num].extract_text()
+                    return f"[PDF file: {file_path_obj.name}]\n{text[:5000]}"
+            except ImportError:
+                return f"[PDF file: {file_path_obj.name}] (PDF parsing not available - install PyPDF2)"
+            except Exception as e:
+                return f"[PDF file: {file_path_obj.name}] (Error reading: {str(e)})"
+        
+        # Handle Word documents (requires python-docx)
+        elif file_ext in {'.doc', '.docx'}:
+            try:
+                import docx
+                doc = docx.Document(file_path)
+                text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
+                return f"[Word document: {file_path_obj.name}]\n{text[:5000]}"
+            except ImportError:
+                return f"[Word document: {file_path_obj.name}] (DOCX parsing not available - install python-docx)"
+            except Exception as e:
+                return f"[Word document: {file_path_obj.name}] (Error reading: {str(e)})"
+        
+        else:
+            return f"[Unsupported file type: {file_path_obj.name}]"
+            
+    except Exception as e:
+        return f"[Error processing file: {str(e)}]"
+
+
+# -------------------------------
+#   ANALYZE QUERY WITH FILES
+# -------------------------------
 @app.post("/analyze-query-stream")
-def analyze_query_stream(request: AnalyzeQueryRequest):
+def analyze_query_stream(request: AnalyzeQueryRequestWithFiles):
     """
     Analyze a user query with streaming updates from the multi-agent workflow.
+    Now supports file uploads - files are processed and their content is included in the analysis.
     
     This endpoint streams real-time updates as the workflow progresses through each node,
     allowing clients to see messages and state changes as they happen.
     
+    Request body:
+    {
+        "user_query": "What is my flight status?",
+        "file_paths": ["uploads/ticket.pdf", "uploads/booking.png"]  // Optional
+    }
+    
     Workflow: 
-    1. Supervisor receives query
+    1. Supervisor receives query (with file context if provided)
     2. Triage analyzes intent and sentiment
     3. Supervisor calls DeepSeek to determine routing
     4. Routes to: GeneralInformation | PersonalisedRAG | Escalation
     
     Stream format: Server-Sent Events (SSE) with JSON payloads
-    
-    Each event contains only relevant data for the executing node:
-    - node: The node that was executed (always included)
-    - user_query: The original user query (always included)
-    
-    Supervisor node returns:
-    - supervisor_messages: Messages from supervisor
-    - greeting_message: Initial greeting message for the user (when first called)
-    - next_agent: Routing decision (when available)
-    
-    Triage node returns:
-    - triage_messages: Messages from triage
-    - intent: Classified intent
-    - sentiment: Sentiment analysis
-    - analysis: Detailed analysis
-    
-    General Information node returns:
-    - general_information_messages: Messages from agent
-    - final_response: Final response to user
-    
-    Personalised RAG node returns:
-    - personalised_rag_messages: Messages from agent
-    - final_response: Final response to user
-    
-    Escalation node returns:
-    - escalation_messages: Messages from agent
-    - final_response: Final response to user (with ticket details)
     """
     def generate_stream():
         try:
+            # Process uploaded files if any
+            file_context = ""
+            if request.file_paths:
+                file_contents = []
+                for file_path in request.file_paths:
+                    content = extract_file_content(file_path)
+                    file_contents.append(content)
+                
+                if file_contents:
+                    file_context = "\n\n--- UPLOADED FILES ---\n" + "\n\n".join(file_contents) + "\n--- END OF FILES ---\n\n"
+            
+            # Enhance user query with file context
+            enhanced_query = request.user_query
+            if file_context:
+                enhanced_query = f"{request.user_query}\n\n{file_context}"
+            
             # Initialize the state with all required fields from AgentState
             initial_state = {
-                "user_query": request.user_query,
+                "user_query": enhanced_query,  # Include file content in query
                 "intent": None,
                 "sentiment": None,
                 "supervisor_messages": [],
@@ -131,29 +292,24 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
             }
             
             # Stream the workflow execution
-            # stream_mode="updates" gives us state updates after each node
             for chunk in workflow.stream(initial_state, stream_mode="updates"):
-                # chunk is a dict with node names as keys
                 for node_name, state_update in chunk.items():
-                    # Create a streaming event with only relevant data for the current node
                     event_data = {
                         "node": node_name,
-                        "user_query": request.user_query
+                        "user_query": request.user_query  # Send original query (without file content)
                     }
                     
                     # Add node-specific data based on which agent is executing
                     if node_name == "supervisor":
                         event_data["supervisor_messages"] = state_update.get("supervisor_messages", [])
-                        # Include greeting message if available
-                        if state_update.get("greeting_message"):
-                            event_data["greeting_message"] = state_update.get("greeting_message")
-                        # Include routing decision if available
+                        # DON'T include greeting message - let UI start clean
+                        # if state_update.get("greeting_message"):
+                        #     event_data["greeting_message"] = state_update.get("greeting_message")
                         if state_update.get("next_agent"):
                             event_data["next_agent"] = state_update.get("next_agent")
                     
                     elif node_name == "triage":
                         event_data["triage_messages"] = state_update.get("triage_messages", [])
-                        # Include triage analysis results
                         if state_update.get("intent"):
                             event_data["intent"] = state_update.get("intent")
                         if state_update.get("sentiment"):
@@ -163,19 +319,16 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
                     
                     elif node_name == "general_information":
                         event_data["general_information_messages"] = state_update.get("general_information_messages", [])
-                        # Include final response if available
                         if state_update.get("final_response"):
                             event_data["final_response"] = state_update.get("final_response")
                     
                     elif node_name == "personalised_rag":
                         event_data["personalised_rag_messages"] = state_update.get("personalised_rag_messages", [])
-                        # Include final response if available
                         if state_update.get("final_response"):
                             event_data["final_response"] = state_update.get("final_response")
                     
                     elif node_name == "escalation":
                         event_data["escalation_messages"] = state_update.get("escalation_messages", [])
-                        # Include final response if available
                         if state_update.get("final_response"):
                             event_data["final_response"] = state_update.get("final_response")
                     
@@ -186,7 +339,6 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
             yield f"data: {json.dumps({'event': 'complete'})}\n\n"
         
         except ValueError as e:
-            # Handle missing API key or configuration errors
             error_event = {
                 "event": "error",
                 "error": f"Configuration error: {str(e)}"
@@ -194,7 +346,6 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
             yield f"data: {json.dumps(error_event)}\n\n"
         
         except Exception as e:
-            # Handle any other errors during workflow execution
             error_event = {
                 "event": "error",
                 "error": f"Error analyzing query: {str(e)}"
@@ -207,7 +358,7 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable buffering for nginx
+            "X-Accel-Buffering": "no"
         }
     )
 
@@ -358,14 +509,8 @@ def create_chat_history(chat_history: ChatHistoryCreate):
 
         chat_history_id = cursor.lastrowid
 
-        # Add welcome message
-        cursor.execute(
-            """
-            INSERT INTO messages (chat_history_id, role, content)
-            VALUES (?, 'system', 'Welcome to your new conversation! How can I assist you today?')
-        """,
-            (chat_history_id,),
-        )
+        # REMOVED: No longer adding welcome message to database
+        # Users will see a clean empty chat
 
         conn.commit()
 
@@ -384,7 +529,7 @@ def create_chat_history(chat_history: ChatHistoryCreate):
             user_id=row[1],
             title=row[2],
             created_at=row[3],
-            message_count=1,
+            message_count=0,  # Changed from 1 to 0
         )
 
     except Exception as e:

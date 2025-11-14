@@ -1,10 +1,9 @@
-
 'use client'
 
 import React, { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
-import { Send, Menu, X, Settings, Moon, LogOut, Plus, Upload, Trash2, Mic } from "lucide-react"
+import { Send, Menu, X, Settings, Moon, LogOut, Plus, Trash2, Mic, Paperclip, FileText, Image as ImageIcon, File } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"
@@ -15,12 +14,14 @@ interface ChatMessage {
   text: string
   sender: "user" | "bot"
   timestamp: Date
+  files?: Array<{ name: string; type: string; size: number }>
 }
 
 interface ChatSession {
   id: string
   title: string
   messages: ChatMessage[]
+  updatedAt: Date
 }
 
 interface ChatbotPageProps {
@@ -28,9 +29,6 @@ interface ChatbotPageProps {
   onLogout: () => void
 }
 
-/**
- * Small typings to avoid TS errors on window.SpeechRecognition / webkitSpeechRecognition
- */
 declare global {
   interface Window {
     webkitSpeechRecognition?: any
@@ -39,7 +37,6 @@ declare global {
 }
 
 export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
-  // Chat state
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -48,25 +45,21 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([])
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
-  // Voice recognition state (Option A: continuous live voice typing)
   const [isListening, setIsListening] = useState(false)
   const [isSpeechSupported, setIsSpeechSupported] = useState(true)
   const recognitionRef = useRef<any>(null)
 
-  // Refs to manage transcripts & prevent overwrites
-  const lastFinalRef = useRef<string>("")       // last final chunk text (used to reduce duplicates)
-  const committedRef = useRef<string>("")       // committed final transcript that should persist in input
-  const isStartingRef = useRef<boolean>(false)  // prevents rapid double-start
+  const lastFinalRef = useRef<string>("")
+  const committedRef = useRef<string>("")
+  const isStartingRef = useRef<boolean>(false)
 
-  // Textarea ref for auto-resize
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
-  // Scroll helper
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -75,24 +68,20 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     scrollToBottom()
   }, [messages])
 
-  // Ensure textarea height sync when inputValue changes (including speech interim results)
   useEffect(() => {
     const ta = textareaRef.current
     if (!ta) return
     ta.style.height = "auto"
-    // small delay to let fonts render properly
     requestAnimationFrame(() => {
       ta.style.height = `${Math.max(40, ta.scrollHeight)}px`
     })
   }, [inputValue])
 
-  // Load chat histories once
   useEffect(() => {
     loadChatHistories()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Initialize Web Speech API (SpeechRecognition)
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
@@ -102,13 +91,12 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     }
 
     const recognition = new SpeechRecognition()
-    recognition.lang = "en-IN" // change as needed
+    recognition.lang = "en-IN"
     recognition.interimResults = true
     recognition.maxAlternatives = 1
-    recognition.continuous = true // continuous for Option A
+    recognition.continuous = true
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      // Build transcript from results
       let interim = ""
       let finalTranscript = ""
       for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -120,19 +108,14 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
         }
       }
 
-      // If final text arrived — append to committedRef (do NOT overwrite previous committed text)
       if (finalTranscript) {
         const cleanedFinal = finalTranscript.trim()
-        // Avoid exact duplicate appends
         if (cleanedFinal && cleanedFinal !== lastFinalRef.current) {
-          // Append with a space separator, preserve previously committed text
           committedRef.current = (committedRef.current + " " + cleanedFinal).trim()
           lastFinalRef.current = cleanedFinal
-          // Show only the committed text in the input (finalized)
           setInputValue(committedRef.current)
         }
       } else if (interim) {
-        // Show interim merged with committed text (do not overwrite committedRef)
         const interimCombined = (committedRef.current + " " + interim).trim()
         setInputValue(interimCombined)
       }
@@ -152,11 +135,8 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     }
 
     recognition.onend = () => {
-      // If listening remains true, restart recognition to keep continuous mode.
-      // Use isStartingRef to prevent immediate double-start race conditions.
       if (isListening) {
         try {
-          // small delay to allow browser to settle, prevents duplicate onresult triggers
           setTimeout(() => {
             try {
               if (isListening && recognitionRef.current) {
@@ -185,7 +165,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Toggle microphone listening (Option A)
   const toggleListening = async () => {
     if (!isSpeechSupported) {
       toast({
@@ -200,7 +179,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     if (!recognition) return
 
     if (isListening) {
-      // stop listening — do NOT clear committed transcript; user should keep it until send/delete
       try {
         recognition.stop()
       } catch {}
@@ -209,14 +187,11 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
       return
     }
 
-    // Start listening safely (prevent double starts)
     try {
       if (!isStartingRef.current) {
         isStartingRef.current = true
         recognition.start()
         setIsListening(true)
-        // do NOT reset committedRef here — keep any existing typed text
-        // but reset lastFinalRef to avoid immediate duplicates from previous session
         lastFinalRef.current = ""
       }
     } catch (err) {
@@ -231,9 +206,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     }
   }
 
-  // -------------------------
-  // Backend interaction
-  // -------------------------
   const loadChatHistories = async () => {
     try {
       const response = await fetch(`${API_URL}/chat-histories/${userInfo?.id}`)
@@ -248,6 +220,7 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           return {
             id: history.id.toString(),
             title: history.title,
+            updatedAt: new Date(history.updated_at || history.created_at),
             messages: messagesData.messages.map((msg: any) => ({
               id: msg.id.toString(),
               text: msg.content,
@@ -258,57 +231,117 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
         })
       )
 
-      // Store sessions but DO NOT auto-open any old chat.
-      setChatSessions(sessions)
+      // Sort by most recent first
+      sessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
 
-      // ALWAYS start a fresh new chat for the user when they arrive (Option 1)
-      // This ensures the main panel is empty and the user begins with a fresh chat.
-      // handleNewChat will create a new chat on backend and update local state.
+      setChatSessions(sessions)
+      
+      // Always create a new chat when user logs in
       await handleNewChat()
     } catch (error) {
       console.error("Error loading chat histories:", error)
-      // If something went wrong, still create a new chat so user has a fresh start.
       handleNewChat()
     }
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!inputValue.trim() || !currentChatId) return
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase()
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) {
+      return <ImageIcon className="w-4 h-4" />
+    } else if (['pdf', 'doc', 'docx', 'txt'].includes(ext || '')) {
+      return <FileText className="w-4 h-4" />
+    }
+    return <File className="w-4 h-4" />
+  }
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    if ((!inputValue.trim() && attachedFiles.length === 0) || !currentChatId) return
+
+    const fileInfo = attachedFiles.map(f => ({
+      name: f.name,
+      type: f.type,
+      size: f.size
+    }))
+
+    const messageText = inputValue.trim() || "Uploaded files"
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: messageText,
       sender: "user",
       timestamp: new Date(),
+      files: fileInfo.length > 0 ? fileInfo : undefined
     }
 
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
-    const messageText = inputValue
-    // Clear input and committed transcript immediately (user has sent it)
+    
+    // Update the chat session in the sidebar with new message
+    setChatSessions(prev => prev.map(chat => 
+      chat.id === currentChatId 
+        ? { ...chat, messages: updatedMessages, updatedAt: new Date() }
+        : chat
+    ).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()))
+    
+    const messageCopy = messageText
+    const filesCopy = [...attachedFiles]
+    
     setInputValue("")
     committedRef.current = ""
     lastFinalRef.current = ""
+    setAttachedFiles([])
+    
     setIsLoading(true)
 
     try {
+      let uploadedFilePaths: string[] = []
+      if (filesCopy.length > 0) {
+        const formData = new FormData()
+        filesCopy.forEach(file => {
+          formData.append('files', file)
+        })
+
+        try {
+          const uploadResponse = await fetch(`${API_URL}/upload-files`, {
+            method: "POST",
+            body: formData,
+          })
+
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json()
+            uploadedFilePaths = uploadResult.file_paths || []
+          } else {
+            console.warn("File upload failed, continuing without files")
+          }
+        } catch (uploadErr) {
+          console.error("Error uploading files:", uploadErr)
+        }
+      }
+
       const saveResponse = await fetch(`${API_URL}/chat-histories/${currentChatId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           role: "user",
-          content: messageText,
+          content: messageCopy,
         }),
       })
 
       if (!saveResponse.ok) throw new Error("Failed to save message")
 
-      // STREAMING: connect to analyze-query-stream SSE endpoint
       const streamRes = await fetch(`${API_URL}/analyze-query-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_query: messageText }),
+        body: JSON.stringify({ 
+          user_query: messageCopy,
+          file_paths: uploadedFilePaths
+        }),
       })
 
       if (!streamRes.ok) {
@@ -318,7 +351,8 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
       const reader = streamRes.body!.getReader()
       const decoder = new TextDecoder()
 
-      let greetingShown = false
+      let accumulatedResponse = ""
+      let botMessageId = (Date.now() + Math.random()).toString()
 
       while (true) {
         const { done, value } = await reader.read()
@@ -332,37 +366,62 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           try {
             const data = JSON.parse(line.slice(6))
 
-            // Display greeting message (once)
-            if (data.greeting_message && !greetingShown) {
-              greetingShown = true
-              const greetMessage: ChatMessage = {
-                id: (Date.now() + Math.random()).toString(),
-                text: data.greeting_message,
-                sender: "bot",
-                timestamp: new Date(),
-              }
-              setMessages((prev) => [...prev, greetMessage])
+            if (data.chunk) {
+              accumulatedResponse += data.chunk
+              
+              setMessages((prev) => {
+                const existing = prev.find(m => m.id === botMessageId)
+                const newMessages = existing
+                  ? prev.map(m => m.id === botMessageId ? { ...m, text: accumulatedResponse } : m)
+                  : [...prev, {
+                      id: botMessageId,
+                      text: accumulatedResponse,
+                      sender: "bot" as const,
+                      timestamp: new Date(),
+                    }]
+                
+                // Update sidebar chat session
+                setChatSessions(prevSessions => prevSessions.map(chat => 
+                  chat.id === currentChatId 
+                    ? { ...chat, messages: newMessages, updatedAt: new Date() }
+                    : chat
+                ).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()))
+                
+                return newMessages
+              })
               scrollToBottom()
             }
 
-            // Display final response (when available)
             if (data.final_response) {
-              const botMessage: ChatMessage = {
-                id: (Date.now() + Math.random() + 1).toString(),
-                text: data.final_response,
-                sender: "bot",
-                timestamp: new Date(),
-              }
+              const finalText = data.final_response
 
-              setMessages((prev) => [...prev, botMessage])
+              setMessages((prev) => {
+                const existing = prev.find(m => m.id === botMessageId)
+                const finalMessages = existing
+                  ? prev.map(m => m.id === botMessageId ? { ...m, text: finalText } : m)
+                  : [...prev, {
+                      id: botMessageId,
+                      text: finalText,
+                      sender: "bot" as const,
+                      timestamp: new Date(),
+                    }]
+                
+                // Final update to sidebar
+                setChatSessions(prevSessions => prevSessions.map(chat => 
+                  chat.id === currentChatId 
+                    ? { ...chat, messages: finalMessages, updatedAt: new Date() }
+                    : chat
+                ).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()))
+                
+                return finalMessages
+              })
 
-              // Persist bot message
               await fetch(`${API_URL}/chat-histories/${currentChatId}/messages`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   role: "assistant",
-                  content: data.final_response,
+                  content: finalText,
                 }),
               })
 
@@ -402,16 +461,17 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
         id: newChatData.id.toString(),
         title: newChatData.title,
         messages: [],
+        updatedAt: new Date(),
       }
 
       setChatSessions((prev) => [newChat, ...prev])
       setCurrentChatId(newChat.id)
       setMessages([])
 
-      // Reset input / transcript buffers for new chat
       committedRef.current = ""
       lastFinalRef.current = ""
       setInputValue("")
+      setAttachedFiles([])
     } catch (error) {
       toast({
         title: "Error",
@@ -427,10 +487,10 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
       setCurrentChatId(chatId)
       setMessages(selectedChat.messages)
 
-      // Reset any live speech text in the input when switching to a historical chat
       committedRef.current = ""
       lastFinalRef.current = ""
       setInputValue("")
+      setAttachedFiles([])
     }
   }
 
@@ -460,37 +520,36 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     }
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      Array.from(files).forEach((file) => {
-        setUploadedFiles((prev) => [...prev, file.name])
-
-        const fileMessage: ChatMessage = {
-          id: Date.now().toString(),
-          text: `📎 Document uploaded: ${file.name}`,
-          sender: "user",
-          timestamp: new Date(),
-        }
-
-        const updatedMessages = [...messages, fileMessage]
-        setMessages(updatedMessages)
-
-        setChatSessions((prev) =>
-          prev.map((chat) => (chat.id === currentChatId ? { ...chat, messages: updatedMessages } : chat))
-        )
+      const newFiles = Array.from(files)
+      setAttachedFiles((prev) => [...prev, ...newFiles])
+      
+      toast({
+        title: "Files attached",
+        description: `${newFiles.length} file(s) ready to send`,
       })
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
     }
   }
 
-  // -------------------------
-  // UI render (polished)
-  // -------------------------
+  const removeAttachedFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
   return (
     <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-white"}`}>
-      {/* Container that will be blurred when settings open */}
       <div className={`flex-1 flex ${showSettings ? "pointer-events-none" : "pointer-events-auto"}`}>
-        {/* Sidebar */}
         <aside className={`${sidebarOpen ? "w-72" : "w-0"} transition-all duration-300 ${darkMode ? "bg-gray-800" : "bg-gray-50"} border-r ${darkMode ? "border-gray-700" : "border-gray-200"} overflow-hidden flex flex-col shadow-sm`}>
           <div className="p-4">
             <Button onClick={handleNewChat} className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg py-2 shadow">
@@ -499,18 +558,47 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
             </Button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 space-y-3 py-2">
-            {chatSessions.length > 0 && <div className="text-xs text-gray-500 font-semibold mb-2 uppercase">Chat History</div>}
-            {chatSessions.map((chat) => (
-              <div key={chat.id} className="flex items-center gap-2 group">
-                <button onClick={() => handleSelectChat(chat.id)} className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors ${currentChatId === chat.id ? (darkMode ? "bg-teal-700 text-white" : "bg-teal-100 text-teal-900") : (darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-200 text-gray-700")}`}>
-                  {chat.title}
-                </button>
-                <button onClick={() => handleDeleteChat(chat.id)} aria-label={`Delete chat ${chat.title}`} className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"}`}>
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </button>
-              </div>
-            ))}
+          <div className="flex-1 overflow-y-auto px-4 py-2 scrollbar-hide">
+            {chatSessions.length > 0 && (
+              <div className="text-xs text-gray-500 font-semibold mb-3 uppercase tracking-wide">Chat History</div>
+            )}
+            <div className="space-y-0">
+              {chatSessions.map((chat, index) => (
+                <React.Fragment key={chat.id}>
+                  <div className="flex items-center gap-2 group py-1">
+                    <button 
+                      onClick={() => handleSelectChat(chat.id)} 
+                      className={`flex-1 text-left px-3 py-2.5 rounded-lg text-sm transition-all ${
+                        currentChatId === chat.id 
+                          ? (darkMode ? "bg-teal-700 text-white shadow-sm" : "bg-teal-100 text-teal-900 shadow-sm") 
+                          : (darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-200 text-gray-700")
+                      }`}
+                    >
+                      <div className="truncate font-medium">{chat.title}</div>
+                      <div className={`text-xs mt-1 ${
+                        currentChatId === chat.id 
+                          ? (darkMode ? "text-teal-200" : "text-teal-700")
+                          : (darkMode ? "text-gray-500" : "text-gray-500")
+                      }`}>
+                        {chat.messages.length} message{chat.messages.length !== 1 ? 's' : ''}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteChat(chat.id)} 
+                      aria-label={`Delete chat ${chat.title}`} 
+                      className={`p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+                        darkMode ? "hover:bg-gray-700" : "hover:bg-gray-200"
+                      }`}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  </div>
+                  {index < chatSessions.length - 1 && (
+                    <div className={`my-2 border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
 
           <div className={`p-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"} space-y-2`}>
@@ -529,7 +617,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           </div>
         </aside>
 
-        {/* Main area */}
         <main className={`flex-1 flex flex-col transition-all duration-300 ${showSettings ? "blur-sm" : ""}`}>
           <header className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <div className="flex items-center gap-4">
@@ -541,8 +628,7 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
             <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Welcome, {userInfo?.name}</div>
           </header>
 
-          {/* Chat content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-4">
                 <div className={`text-5xl ${darkMode ? "text-gray-600" : "text-gray-300"}`}>✈️</div>
@@ -554,6 +640,17 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
                 {messages.map((message) => (
                   <div key={message.id} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow-sm ${message.sender === "user" ? "bg-teal-600 text-white" : darkMode ? "bg-gray-700 text-gray-100" : "bg-gray-100 text-gray-900"}`}>
+                      {message.files && message.files.length > 0 && (
+                        <div className="mb-2 space-y-1">
+                          {message.files.map((file, idx) => (
+                            <div key={idx} className={`flex items-center gap-2 text-xs px-2 py-1 rounded ${message.sender === "user" ? "bg-teal-700" : darkMode ? "bg-gray-600" : "bg-gray-200"}`}>
+                              {getFileIcon(file.name)}
+                              <span className="flex-1 truncate">{file.name}</span>
+                              <span className="text-xs opacity-70">{formatFileSize(file.size)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="prose prose-sm max-w-none dark:prose-invert text-sm"><ReactMarkdown>{message.text}</ReactMarkdown></div>
                       <span className={`text-xs mt-1 block ${message.sender === "user" ? "text-teal-100" : darkMode ? "text-gray-400" : "text-gray-500"}`}>
                         {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -577,68 +674,87 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
             )}
           </div>
 
-          {/* Composer */}
           <div className={`px-6 py-4 border-t ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <form onSubmit={handleSendMessage} className="space-y-3">
-              {uploadedFiles.length > 0 && (
+              {attachedFiles.length > 0 && (
                 <div className="flex gap-2 flex-wrap">
-                  {uploadedFiles.map((file, idx) => (
-                    <div key={idx} className="px-3 py-1 rounded-full bg-teal-100 text-teal-700 text-xs flex items-center gap-2 shadow-sm">
-                      📎 {file}
-                      <button type="button" onClick={() => setUploadedFiles((prev) => prev.filter((_, i) => i !== idx))} className="hover:text-teal-900">×</button>
+                  {attachedFiles.map((file, idx) => (
+                    <div key={idx} className="px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs flex items-center gap-2 shadow-sm">
+                      {getFileIcon(file.name)}
+                      <span className="max-w-[150px] truncate">{file.name}</span>
+                      <span className="text-xs opacity-70">{formatFileSize(file.size)}</span>
+                      <button type="button" onClick={() => removeAttachedFile(idx)} className="hover:text-teal-900 ml-1">×</button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <div className="flex gap-3 items-end">
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className={`p-2.5 rounded-lg transition-colors ${darkMode ? "bg-gray-700 hover:bg-gray-600 text-gray-300" : "bg-gray-100 hover:bg-gray-200 text-gray-700"}`} title="Upload document">
-                    <Upload className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="flex-1">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}
                     value={inputValue}
                     onChange={(e) => {
                       setInputValue(e.target.value)
-                      // keep committedRef consistent with typed text so speech doesn't conflict
                       committedRef.current = e.target.value
                       lastFinalRef.current = ""
-                      // auto-resize (ensure this matches the useEffect too)
                       e.target.style.height = "auto"
                       e.target.style.height = `${Math.max(40, e.target.scrollHeight)}px`
                     }}
+                    onKeyDown={handleKeyDown}
                     rows={1}
                     placeholder="Message our AI support assistant..."
                     aria-label="Message"
-                    className={`w-full min-h-[40px] max-h-[240px] resize-none overflow-auto rounded-2xl px-4 py-3 border transition-shadow focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:opacity-80
+                    className={`w-full min-h-[40px] max-h-[240px] resize-none overflow-auto rounded-2xl px-4 py-2.5 pr-12 border transition-shadow focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:opacity-80 scrollbar-hide
                       ${darkMode ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400" : "bg-white border-gray-200 text-gray-900"}`}
                     disabled={isLoading}
                     style={{ lineHeight: "1.25rem" }}
                   />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button type="button" onClick={toggleListening} aria-pressed={isListening} className={`p-3 rounded-full transition-transform transform ${isListening ? "scale-105 ring-4 ring-red-400/30 shadow-lg" : "hover:scale-105"} ${darkMode ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow" : "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow"}`} title="Voice recognition (continuous)">
-                    <Mic className="w-6 h-6" />
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()} 
+                    className={`absolute right-2 bottom-2 p-1.5 rounded-lg transition-colors ${darkMode ? "hover:bg-gray-600 text-gray-400" : "hover:bg-gray-100 text-gray-600"}`} 
+                    title="Attach files"
+                    disabled={isLoading}
+                  >
+                    <Paperclip className="w-5 h-5" />
                   </button>
-
-                  <input ref={fileInputRef} type="file" multiple onChange={handleFileUpload} className="hidden" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" />
-
-                  <Button type="submit" disabled={isLoading || !inputValue.trim()} className="bg-teal-600 hover:bg-teal-700 text-white rounded-full px-5 py-2 shadow">
-                    <Send className="w-4 h-4" />
-                  </Button>
                 </div>
+
+                <input 
+                  ref={fileInputRef} 
+                  type="file" 
+                  multiple 
+                  onChange={handleFileSelect} 
+                  className="hidden" 
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" 
+                />
+
+                <button 
+                  type="button" 
+                  onClick={toggleListening} 
+                  aria-pressed={isListening} 
+                  disabled={isLoading}
+                  className={`p-3 rounded-full transition-transform transform flex-shrink-0 ${isListening ? "scale-105 ring-4 ring-red-400/30 shadow-lg" : "hover:scale-105"} ${darkMode ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow" : "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow"}`} 
+                  title="Voice recognition"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+
+                <Button 
+                  type="submit" 
+                  disabled={isLoading || (!inputValue.trim() && attachedFiles.length === 0)} 
+                  className="bg-teal-600 hover:bg-teal-700 text-white rounded-full p-3 shadow flex-shrink-0"
+                >
+                  <Send className="w-5 h-5" />
+                </Button>
               </div>
             </form>
           </div>
         </main>
       </div>
 
-      {/* Settings modal (full-screen overlay with backdrop blur & smooth transition) */}
       {showSettings && (
         <div
           role="dialog"
@@ -646,14 +762,12 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           aria-label="Settings"
           className="fixed inset-0 z-50 flex items-center justify-center"
         >
-          {/* Dimmed backdrop with gentle blur */}
           <div
             onClick={() => setShowSettings(false)}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200"
             aria-hidden="true"
           />
 
-          {/* Modal panel */}
           <div className={`relative transform rounded-2xl p-6 max-w-md w-full mx-4 ${darkMode ? "bg-gray-800" : "bg-white"} shadow-2xl transition-all duration-200 ease-out`} style={{ animation: "modalPop .16s ease-out" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>Settings</h2>
@@ -685,11 +799,18 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           </div>
         </div>
       )}
-      {/* small inline keyframe for modal pop, purely CSS-inlined for simplicity */}
+      
       <style jsx>{`
         @keyframes modalPop {
           from { opacity: 0; transform: translateY(6px) scale(.985); }
           to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </div>

@@ -72,16 +72,28 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
       {/* Decorative icons left */}
       <div className="hidden lg:block absolute left-12 inset-y-0 pointer-events-none">
-        <Headset size={38} className="absolute top-[20%] text-indigo-400 opacity-60" />
-        <MessageSquare size={38} className="absolute top-1/2 -translate-y-1/2 text-indigo-400 opacity-60" />
-        <PhoneCall size={38} className="absolute bottom-[20%] text-indigo-400 opacity-60" />
+        <div className="absolute top-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <Headset size={32} className="text-emerald-600" />
+        </div>
+        <div className="absolute top-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <MessageSquare size={32} className="text-indigo-600" />
+        </div>
+        <div className="absolute bottom-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <PhoneCall size={32} className="text-emerald-600" />
+        </div>
       </div>
 
       {/* Right decorative icons */}
-      <div className="hidden lg:block absolute right-12 inset-y-0 pointer-events-none">
-        <Headset size={38} className="absolute top-[20%] text-indigo-400 opacity-60" />
-        <MessageSquare size={38} className="absolute top-1/2 -translate-y-1/2 text-indigo-400 opacity-60" />
-        <PhoneCall size={38} className="absolute bottom-[20%] text-indigo-400 opacity-60" />
+      <div className="hidden lg:block absolute right-20 inset-y-0 pointer-events-none">
+        <div className="absolute top-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <Headset size={32} className="text-indigo-600" />
+        </div>
+        <div className="absolute top-1/2 -translate-y-1/2 w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <MessageSquare size={32} className="text-emerald-600" />
+        </div>
+        <div className="absolute bottom-[20%] w-16 h-16 rounded-full bg-gradient-to-br from-emerald-100 to-indigo-100 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:from-emerald-200 hover:to-indigo-200">
+          <PhoneCall size={32} className="text-indigo-600" />
+        </div>
       </div>
 
       {/* Content */}
@@ -119,8 +131,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
             <div className="space-y-4 pt-4">
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                 <span className="text-sm text-gray-600">Your information is secure and encrypted</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <span className="text-sm text-gray-600">Fast and seamless verification process</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <span className="text-sm text-gray-600">24/7 support available for assistance</span>
               </div>
             </div>
           </div>
@@ -149,8 +169,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
           <div className="space-y-3 pb-4">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <span className="text-sm text-gray-600">Fast and seamless process</span>
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <span className="text-sm text-gray-600">Your information is secure and encrypted</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <span className="text-sm text-gray-600">Fast and seamless verification process</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <span className="text-sm text-gray-600">24/7 support available for assistance</span>
             </div>
           </div>
         </div>
