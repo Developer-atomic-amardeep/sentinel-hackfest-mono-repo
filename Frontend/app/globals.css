@@ -139,3 +139,7 @@
 .animate-bounce {
   animation: bounce-custom 1.4s infinite;
 }
+/* optional polish for textarea placeholder & scrollbar */
+textarea::placeholder { opacity: 0.7; }
+textarea::-webkit-scrollbar { height: 6px; width: 6px; }
+textarea::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 999px; }
