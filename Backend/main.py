@@ -1,8 +1,10 @@
 import sqlite3
+import json
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from utils.database import get_db_connection, initialize_database, UserRequest, UserResponse
 from utils.database import (
     get_db_connection, 
@@ -21,6 +23,8 @@ from utils.database.models import (
     TestCredentialsRequest,
     TestCredentialsResponse
 )
+from agents.models import AnalyzeQueryRequest
+from agents.graph import workflow
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +49,144 @@ app.add_middleware(
 def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "message": "Server is running"}
+
+
+@app.post("/analyze-query-stream")
+def analyze_query_stream(request: AnalyzeQueryRequest):
+    """
+    Analyze a user query with streaming updates from the multi-agent workflow.
+    
+    This endpoint streams real-time updates as the workflow progresses through each node,
+    allowing clients to see messages and state changes as they happen.
+    
+    Workflow: 
+    1. Supervisor receives query
+    2. Triage analyzes intent and sentiment
+    3. Supervisor calls DeepSeek to determine routing
+    4. Routes to: GeneralInformation | PersonalisedRAG | Escalation
+    
+    Stream format: Server-Sent Events (SSE) with JSON payloads
+    
+    Each event contains only relevant data for the executing node:
+    - node: The node that was executed (always included)
+    - user_query: The original user query (always included)
+    
+    Supervisor node returns:
+    - supervisor_messages: Messages from supervisor
+    - next_agent: Routing decision (when available)
+    
+    Triage node returns:
+    - triage_messages: Messages from triage
+    - intent: Classified intent
+    - sentiment: Sentiment analysis
+    - analysis: Detailed analysis
+    
+    General Information node returns:
+    - general_information_messages: Messages from agent
+    - final_response: Final response to user
+    
+    Personalised RAG node returns:
+    - personalised_rag_messages: Messages from agent
+    - final_response: Final response to user
+    
+    Escalation node returns:
+    - escalation_messages: Messages from agent
+    - final_response: Final response to user (with ticket details)
+    """
+    def generate_stream():
+        try:
+            # Initialize the state with all required fields from AgentState
+            initial_state = {
+                "user_query": request.user_query,
+                "intent": None,
+                "sentiment": None,
+                "supervisor_messages": [],
+                "triage_messages": [],
+                "general_information_messages": [],
+                "personalised_rag_messages": [],
+                "escalation_messages": [],
+                "analysis": None,
+                "next_agent": None,
+                "final_response": None
+            }
+            
+            # Stream the workflow execution
+            # stream_mode="updates" gives us state updates after each node
+            for chunk in workflow.stream(initial_state, stream_mode="updates"):
+                # chunk is a dict with node names as keys
+                for node_name, state_update in chunk.items():
+                    # Create a streaming event with only relevant data for the current node
+                    event_data = {
+                        "node": node_name,
+                        "user_query": request.user_query
+                    }
+                    
+                    # Add node-specific data based on which agent is executing
+                    if node_name == "supervisor":
+                        event_data["supervisor_messages"] = state_update.get("supervisor_messages", [])
+                        # Include routing decision if available
+                        if state_update.get("next_agent"):
+                            event_data["next_agent"] = state_update.get("next_agent")
+                    
+                    elif node_name == "triage":
+                        event_data["triage_messages"] = state_update.get("triage_messages", [])
+                        # Include triage analysis results
+                        if state_update.get("intent"):
+                            event_data["intent"] = state_update.get("intent")
+                        if state_update.get("sentiment"):
+                            event_data["sentiment"] = state_update.get("sentiment")
+                        if state_update.get("analysis"):
+                            event_data["analysis"] = state_update.get("analysis")
+                    
+                    elif node_name == "general_information":
+                        event_data["general_information_messages"] = state_update.get("general_information_messages", [])
+                        # Include final response if available
+                        if state_update.get("final_response"):
+                            event_data["final_response"] = state_update.get("final_response")
+                    
+                    elif node_name == "personalised_rag":
+                        event_data["personalised_rag_messages"] = state_update.get("personalised_rag_messages", [])
+                        # Include final response if available
+                        if state_update.get("final_response"):
+                            event_data["final_response"] = state_update.get("final_response")
+                    
+                    elif node_name == "escalation":
+                        event_data["escalation_messages"] = state_update.get("escalation_messages", [])
+                        # Include final response if available
+                        if state_update.get("final_response"):
+                            event_data["final_response"] = state_update.get("final_response")
+                    
+                    # Format as Server-Sent Event
+                    yield f"data: {json.dumps(event_data)}\n\n"
+            
+            # Send final completion event
+            yield f"data: {json.dumps({'event': 'complete'})}\n\n"
+        
+        except ValueError as e:
+            # Handle missing API key or configuration errors
+            error_event = {
+                "event": "error",
+                "error": f"Configuration error: {str(e)}"
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+        
+        except Exception as e:
+            # Handle any other errors during workflow execution
+            error_event = {
+                "event": "error",
+                "error": f"Error analyzing query: {str(e)}"
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable buffering for nginx
+        }
+    )
 
 
 @app.post("/validate-users", response_model=UserResponse)

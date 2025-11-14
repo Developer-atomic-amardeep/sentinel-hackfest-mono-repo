@@ -1,0 +1,184 @@
+[
+    {
+        "doc_id": "payment_card_guide_001",
+        "title": "Credit and Debit Card Payment Guide",
+        "content": "Paying with a credit or debit card is one of the fastest and most secure ways to complete your purchase. We accept major card brands including Visa, Mastercard, American Express, and Discover. When entering your card details at checkout, ensure that the card number, expiration date, CVV, and billing address match what your bank has on file. This helps prevent authorization issues. For additional security, some banks may request OTP (One-Time Password) verification, 3D Secure authentication, or biometric confirmation. Your card is only charged when your order ships. Pre-orders are charged when the item becomes available for dispatch. We tokenize and encrypt your card information using PCI DSS–compliant systems, ensuring your full card number is never stored on our servers. If your card is declined, it may be due to insufficient funds, incorrect billing information, or fraud prevention checks initiated by your bank.",
+        "metadata": {
+          "category": "payment",
+          "subcategory": "card_payments",
+          "keywords": ["credit card", "debit card", "payment guide", "card security"],
+          "security_level": "PCI_compliant",
+          "last_updated": "2024-01-10"
+        }
+      }
+,
+{
+    "doc_id": "digital_wallets_002",
+    "title": "Digital Wallet Payments: PayPal, Apple Pay, Google Pay",
+    "content": "Digital wallets allow you to complete purchases quickly without manually entering payment information. We currently support PayPal, Apple Pay, Google Pay, and Shop Pay. When using PayPal, you can log into your account and choose your preferred funding source, including linked cards or bank accounts. Apple Pay and Google Pay allow checkout using stored cards and biometric authentication on supported devices. These payment options are especially convenient for mobile users. Digital wallet transactions use secure tokenization, keeping your actual card number hidden during checkout. Payment is captured only when your order ships, unless PayPal policies require earlier capture. If you see a temporary hold on your PayPal or bank account, it is part of the standard authorization process.",
+    "metadata": {
+      "category": "payment",
+      "subcategory": "digital_wallets",
+      "keywords": ["PayPal", "Apple Pay", "Google Pay", "Shop Pay"],
+      "security_level": "PCI_compliant",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "bnpl_affirm_afterpay_003",
+    "title": "Buy Now, Pay Later Options: Affirm and Afterpay",
+    "content": "For customers looking for flexible payment options, we offer Buy Now, Pay Later (BNPL) providers including Affirm and Afterpay. These services allow you to split your purchase into 4 interest-free installments or choose longer-term monthly plans when available. Eligibility and payment plan options are determined by Affirm or Afterpay during checkout, based on your credit profile and purchase amount. Purchases over $50 typically qualify. Your payment schedule will be displayed clearly before confirming your order. Using BNPL does not delay shipping—your order is processed normally once approved. If you return an item, Affirm or Afterpay adjusts your remaining payments or issues a refund for completed installments. Late fees and interest policies vary by provider, so refer to their terms during checkout.",
+    "metadata": {
+      "category": "payment",
+      "subcategory": "buy_now_pay_later",
+      "keywords": ["Affirm", "Afterpay", "installments", "BNPL"],
+      "security_level": "PCI_compliant",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "gift_card_usage_004",
+    "title": "Gift Card Usage and Balance Checking",
+    "content": "Our store gift cards provide a convenient way to pay for your purchases or share shopping credit with someone else. Gift cards can be applied during checkout by entering the unique code in the Gift Card field. If your gift card balance does not cover the full amount, you can pay the remaining balance using any of our accepted payment methods. Gift cards never expire and can be used across multiple orders until the balance is fully spent. To check your balance, use the balance checker tool on our website or contact our support team. Lost or stolen gift cards can be replaced only if you have the original proof of purchase. Gift cards cannot be reloaded or redeemed for cash unless required by law.",
+    "metadata": {
+      "category": "payment",
+      "subcategory": "gift_cards",
+      "keywords": ["gift card", "balance checking", "gift credit"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "combining_payments_005",
+    "title": "Combining Multiple Payment Methods",
+    "content": "We allow customers to combine certain payment methods to complete a single order. Gift cards can always be combined with a credit or debit card, PayPal, or a digital wallet if the gift card balance does not cover the full total. However, two credit cards or two digital wallets cannot be combined for the same purchase due to processing limitations. Buy Now, Pay Later options such as Affirm or Afterpay cannot be combined with other payment methods except gift cards. If your combined payment fails, ensure that the secondary payment method has sufficient funds and that billing information matches bank records. Once successfully processed, your final receipt will list all payment sources used for the transaction.",
+    "metadata": {
+      "category": "payment",
+      "subcategory": "combined_payments",
+      "keywords": ["multiple payments", "gift card combination", "payment split"],
+      "security_level": "PCI_compliant",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "payment_charge_timing_006",
+    "title": "When Your Payment Is Charged",
+    "content": "Your payment is typically charged when your order ships. At checkout, we perform an authorization check to confirm your payment method has sufficient funds. This may appear as a temporary hold. For digital wallets like PayPal, some transactions may require immediate capture depending on account settings. Pre-order items are charged only when they become available for shipment. For Buy Now, Pay Later purchases, your first installment date is determined by the provider, not by us. If your order contains multiple shipments, you are charged separately as each shipment leaves our warehouse.",
+    "metadata": {
+      "category": "payment_processing",
+      "subcategory": "charge_timing",
+      "keywords": ["charged", "authorization", "payment timing"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+  {
+    "doc_id": "auth_holds_007",
+    "title": "Authorization Holds Explained",
+    "content": "Authorization holds are temporary funds reservations placed by your bank when you attempt to make a purchase. This hold ensures that your payment method is valid and has enough balance to cover the order. The amount may appear as 'pending' on your statement. Authorization holds typically clear within 1–7 business days depending on your bank. If an order is canceled before shipping, the hold is released automatically. Digital wallet users may see dual authorizations if switching funding methods mid-checkout. These holds are not charges and will not result in duplicate payments. If a hold remains longer than expected, your bank can provide exact release timelines.",
+    "metadata": {
+      "category": "payment_processing",
+      "subcategory": "authorization",
+      "keywords": ["authorization hold", "pending charge", "bank hold"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "payment_declined_008",
+    "title": "Payment Declined: Common Reasons and Solutions",
+    "content": "Payments can fail for various reasons, and most issues can be resolved quickly. Common causes include incorrect card details, mismatched billing addresses, insufficient funds, expired cards, or your bank's fraud protection filters. Some banks block international or high-value transactions unless explicitly permitted. Digital wallet declines may occur if the default funding source has been changed or removed. To resolve these issues, try re-entering your payment information, contacting your bank, or switching to an alternative payment method. Our support team can also help verify if the decline occurred on our end.",
+    "metadata": {
+      "category": "payment_processing",
+      "subcategory": "payment_declines",
+      "keywords": ["payment failed", "declined card", "billing address"],
+      "security_level": "PCI_compliant",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "currency_conversion_009",
+    "title": "Currency Conversion and Foreign Transaction Fees",
+    "content": "If you are shopping from outside the country where our store is based, your bank or payment provider may apply currency conversion rates or foreign transaction fees. While we display prices in multiple currencies for your convenience, your bank ultimately determines the final exchange rate. Some cards charge an additional 1–3% fee for international purchases. Digital wallets like PayPal may use their own conversion rate, which can differ from bank rates. We do not control or charge foreign transaction fees ourselves. For accurate details, review your bank's terms or contact their support team before purchasing.",
+    "metadata": {
+      "category": "payment_processing",
+      "subcategory": "currency_conversion",
+      "keywords": ["currency", "foreign transaction fee", "exchange rate"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "payment_receipts_010",
+    "title": "Payment Confirmation and Receipts",
+    "content": "Once your payment is successfully processed, we email a confirmation receipt that includes your order number, payment method, billed amount, and itemized list of purchased products. If you used multiple payment methods, each source will appear in the receipt. For digital wallet transactions, PayPal or Apple Pay may also send a separate confirmation. If you do not receive an email within a few minutes, check your spam folder or verify that your email address was entered correctly. You can also access receipts through your account dashboard at any time.",
+    "metadata": {
+      "category": "payment_processing",
+      "subcategory": "receipts",
+      "keywords": ["receipt", "payment confirmation", "order email"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "refund_processing_times_011",
+    "title": "Refund Processing Times by Payment Method",
+    "content": "Refund processing times vary depending on your original payment method. Credit and debit card refunds typically take 3–10 business days to appear on your statement, depending on your bank. PayPal refunds are usually instant but may take up to 48 hours. Digital wallet refunds to Apple Pay or Google Pay follow the timeline of their underlying card issuer. Affirm and Afterpay refunds adjust your remaining installments, and any completed payments are returned within 5–10 business days. Gift card refunds are returned as store credit unless otherwise stated. Once we issue a refund, you will receive a confirmation email.",
+    "metadata": {
+      "category": "refunds",
+      "subcategory": "processing_times",
+      "keywords": ["refund", "processing time", "return timeline"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "store_credit_vs_original_012",
+    "title": "Store Credit vs Original Payment Method",
+    "content": "When requesting a refund, you may have the option to receive your money back through store credit or the original payment method. Store credit refunds are processed instantly and can be applied to future purchases without expiration. Refunds to the original payment method follow standard bank or processor timelines. Some items, such as final sale products or promotional items, may only be eligible for store credit depending on our return policy. If multiple payment methods were used during purchase, refunds are issued proportionally across each method. Store credit can be viewed and managed in your account dashboard.",
+    "metadata": {
+      "category": "refunds",
+      "subcategory": "store_credit",
+      "keywords": ["store credit", "refund method", "refund policy"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "partial_refunds_013",
+    "title": "Partial Refunds for Multi-Item Orders",
+    "content": "If you return only some items from a larger order, we issue a partial refund for the value of the returned products. Shipping fees are typically non-refundable unless the entire order is returned or the return was due to an error on our part. If multiple payment methods were used, the refund is split proportionally across each method. For Buy Now, Pay Later purchases, Affirm and Afterpay adjust your remaining balance or refund completed installments accordingly. Partial refunds will be reflected in your order history along with updated payment breakdowns.",
+    "metadata": {
+      "category": "refunds",
+      "subcategory": "partial_refunds",
+      "keywords": ["partial refund", "multi-item order", "return policy"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+,
+{
+    "doc_id": "cancelled_order_refund_014",
+    "title": "Refund for Cancelled Orders",
+    "content": "If your order is cancelled before it ships, any authorization holds placed on your payment method are released automatically. For credit and debit cards, the release may take 3–7 business days depending on your bank. PayPal and digital wallet cancellations typically process within minutes. If your cancellation occurs after a charge has been captured, a full refund is issued to your original payment method. For BNPL purchases, Affirm and Afterpay update your payment plan and return any paid installments. You will receive an email confirmation once your cancellation and refund have been processed.",
+    "metadata": {
+      "category": "refunds",
+      "subcategory": "cancelled_orders",
+      "keywords": ["cancelled order", "refund", "order cancellation"],
+      "security_level": "standard",
+      "last_updated": "2024-01-10"
+    }
+  }
+  
+]

@@ -1,0 +1,262 @@
+[
+    {
+        "doc_id": "product_category_electronics_laptops_001",
+        "title": "Laptop Specifications Guide: Understanding Intel Processor Tiers",
+        "content": "Choosing the right processor is key to laptop performance. Intel's processor lineup includes the i3, i5, i7, and i9 tiers. Core i3 laptops are ideal for basic tasks like browsing and document editing. Core i5 models offer a strong balance of performance and efficiency, making them suitable for students and professionals. Core i7 processors are designed for multitasking, light content creation, and demanding applications. Core i9 processors deliver top-tier performance for gaming, 3D modeling, and video editing. When selecting a laptop, consider the types of tasks you'll perform daily to choose the processor that matches your needs.",
+        "metadata": {
+          "category": "product_info",
+          "subcategory": "electronics",
+          "product_type": "laptops",
+          "topic": "specifications_processors",
+          "keywords": ["laptop", "intel", "processor", "i3", "i5", "i7", "i9"],
+          "last_updated": "2024-01-15"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_laptops_002",
+        "title": "Understanding RAM Requirements for Different Use Cases",
+        "content": "RAM determines how smoothly your laptop handles multitasking. For basic use such as web browsing or streaming, 4–8GB RAM is often enough. For office work, coding, or moderate multitasking, 8–16GB provides a noticeable improvement. Creators working with large files or running virtual machines should choose 16–32GB. High-end gamers and professional editors may benefit from 32GB or more. Choosing the right RAM ensures your laptop stays responsive over years of use.",
+        "metadata": {
+          "category": "product_info",
+          "subcategory": "electronics",
+          "product_type": "laptops",
+          "topic": "specifications_ram",
+          "keywords": ["RAM", "memory", "laptop performance", "multitasking"],
+          "last_updated": "2024-01-15"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_laptops_003",
+        "title": "Storage Options: SSD vs HDD vs NVMe Drives",
+        "content": "Laptop storage significantly impacts loading times and overall responsiveness. HDDs offer high capacity at lower prices but are slower and more prone to damage. SATA SSDs provide up to 5x faster performance and better durability. NVMe SSDs deliver the fastest speeds, ideal for booting, launching applications, and handling large files. For most users, a 256–512GB SSD is a good balance. Professionals dealing with media files should consider NVMe drives for maximum efficiency.",
+        "metadata": {
+          "category": "product_info",
+          "subcategory": "electronics",
+          "product_type": "laptops",
+          "topic": "storage",
+          "keywords": ["SSD", "HDD", "NVMe", "storage", "laptop"],
+          "last_updated": "2024-01-15"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_laptops_004",
+        "title": "Graphics Cards: Integrated vs Dedicated GPU",
+        "content": "Laptops come with either integrated graphics or dedicated GPUs. Integrated GPUs share system memory and are suitable for everyday use, streaming, and light gaming. Dedicated GPUs have their own memory and processing power, making them ideal for gaming, video editing, 3D rendering, and design applications. If your work involves graphic-heavy tasks, a laptop with an NVIDIA or AMD dedicated GPU will deliver smoother performance.",
+        "metadata": {
+          "category": "product_info",
+          "subcategory": "electronics",
+          "product_type": "laptops",
+          "topic": "graphics",
+          "keywords": ["GPU", "graphics card", "integrated", "dedicated"],
+          "last_updated": "2024-01-15"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_laptops_005",
+        "title": "Battery Life Expectations by Laptop Category",
+        "content": "Battery life varies widely by laptop category. Ultrabooks typically offer 8–12 hours due to efficient processors and optimized designs. Gaming laptops often provide 3–5 hours because of power-hungry GPUs. Business laptops strike a balance with 7–10 hours of productivity-focused usage. Always check real-world battery tests rather than manufacturer claims for accurate expectations.",
+        "metadata": {
+          "category": "product_info",
+          "subcategory": "electronics",
+          "product_type": "laptops",
+          "topic": "battery",
+          "keywords": ["battery life", "laptop", "ultrabook", "gaming laptop"],
+          "last_updated": "2024-01-20"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_smart_home_001",
+        "title": "Smart Home Compatibility: Understanding Ecosystems",
+        "content": "Smart home devices often work best within a specific ecosystem such as Google Home, Amazon Alexa, or Apple HomeKit. While many lights, switches, and sensors support multiple platforms, some advanced features may only work with the manufacturer’s preferred ecosystem. Before purchasing, check if the device supports your assistant, Wi-Fi frequency, and required hubs. Ensuring compatibility helps create a seamless automation experience.",
+        "metadata": {
+          "category": "product_features",
+          "subcategory": "smart_home",
+          "product_type": "devices",
+          "topic": "compatibility",
+          "keywords": ["smart home", "Google Home", "Alexa", "HomeKit"],
+          "last_updated": "2024-02-10"
+        }
+      },
+    {
+        "doc_id": "product_category_electronics_accessories_001",
+        "title": "Waterproof Ratings Explained: IPX4 vs IPX7 vs IP68",
+        "content": "IP ratings indicate how well a device resists water and dust. IPX4 devices are splash-resistant, suitable for workouts or light rain. IPX7 devices can withstand immersion in up to 1 meter of water for 30 minutes. IP68 offers the highest protection, allowing full immersion at greater depths. When choosing a device for outdoor or aquatic environments, selecting the right IP rating ensures durability and safety.",
+        "metadata": {
+          "category": "product_features",
+          "subcategory": "electronics",
+          "product_type": "accessories",
+          "topic": "waterproofing",
+          "keywords": ["IPX4", "IPX7", "IP68", "waterproof"],
+          "last_updated": "2024-02-18"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_audio_001",
+        "title": "Noise Cancellation Technology in Headphones",
+        "content": "Noise cancellation reduces unwanted ambient sounds. Passive noise cancellation blocks noise through physical design, such as padded earcups. Active noise cancellation (ANC) uses microphones to detect and counter external noise with sound waves. ANC headphones are ideal for travel, offices, and noisy environments. Look for adjustable ANC levels for a more personalized listening experience.",
+        "metadata": {
+          "category": "product_features",
+          "subcategory": "audio",
+          "product_type": "headphones",
+          "topic": "noise_cancellation",
+          "keywords": ["ANC", "passive noise cancellation", "headphones"],
+          "last_updated": "2024-03-10"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_cameras_001",
+        "title": "Camera Specifications: Megapixels vs Sensor Size",
+        "content": "Megapixels determine image resolution, but sensor size influences image quality far more. Larger sensors capture more light, resulting in better low-light performance and dynamic range. For smartphones, improvements in computational photography also enhance output. When choosing a camera, prioritize sensor size and lens quality over megapixel count alone.",
+        "metadata": {
+          "category": "product_features",
+          "subcategory": "cameras",
+          "product_type": "digital_cameras",
+          "topic": "camera_specs",
+          "keywords": ["camera", "megapixels", "sensor size"],
+          "last_updated": "2024-04-02"
+        }
+    },
+    {
+        "doc_id": "product_category_fashion_clothing_001",
+        "title": "Clothing Size Conversion Chart: US, EU, and UK",
+        "content": "Clothing sizes differ across regions. A US size M typically corresponds to a UK size M and an EU size 48–50 for men. For women, a US size 8 converts to a UK size 12 and EU size 40. When shopping internationally, always check the brand's specific size chart since measurements may vary by manufacturer.",
+        "metadata": {
+          "category": "size_guides",
+          "subcategory": "clothing",
+          "product_type": "apparel",
+          "topic": "size_conversion",
+          "keywords": ["clothing sizes", "US size", "EU size", "UK size"],
+          "last_updated": "2024-04-15"
+        }
+    },
+    {
+        "doc_id": "product_category_fashion_shoes_001",
+        "title": "Shoe Size Guide by Major Footwear Brands",
+        "content": "Shoe sizing can vary significantly between brands. Nike shoes often run slightly narrow and may require sizing up for wide feet. Adidas typically offers a more true-to-size fit. Puma shoes run snug, especially in athletic models. When trying a new brand, reviewing their size chart ensures better fit and comfort.",
+        "metadata": {
+          "category": "size_guides",
+          "subcategory": "shoes",
+          "product_type": "footwear",
+          "topic": "brand_size_fit",
+          "keywords": ["shoe size", "Nike", "Adidas", "Puma"],
+          "last_updated": "2024-04-20"
+        }
+    },
+    {
+        "doc_id": "product_category_fashion_accessories_001",
+        "title": "Ring Size Measurement Guide for Online Buyers",
+        "content": "To find the right ring size, measure the circumference of your finger using a flexible measuring tape or string. Compare the measurement to a standard ring size chart. Consider measuring at the end of the day when fingers are slightly swollen. If choosing between two sizes, opt for the larger one for comfort.",
+        "metadata": {
+          "category": "size_guides",
+          "subcategory": "jewelry",
+          "product_type": "rings",
+          "topic": "ring_sizing",
+          "keywords": ["ring size", "measurement", "jewelry"],
+          "last_updated": "2024-05-10"
+        }
+    },
+    {
+        "doc_id": "product_category_home_furniture_001",
+        "title": "Furniture Dimensions for Different Room Sizes",
+        "content": "Choosing furniture that fits your room ensures a balanced layout. For small bedrooms under 120 sq ft, compact beds and wardrobes are recommended. Living rooms between 150–250 sq ft can accommodate standard sofas and entertainment units. For dining spaces, ensure at least 36 inches of clearance around the table for comfortable movement.",
+        "metadata": {
+          "category": "size_guides",
+          "subcategory": "furniture",
+          "product_type": "home_furniture",
+          "topic": "dimensions",
+          "keywords": ["room size", "furniture size", "interior layout"],
+          "last_updated": "2024-05-22"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_phones_001",
+        "title": "Phone Case Compatibility by Model",
+        "content": "Phone cases are designed for specific models because dimensions and camera placements vary. An iPhone 14 case will not fit the iPhone 13 despite visual similarities. Android models also differ widely by brand. Always check the exact model number before purchasing to ensure a perfect fit.",
+        "metadata": {
+          "category": "compatibility",
+          "subcategory": "phones",
+          "product_type": "cases",
+          "topic": "case_fitting",
+          "keywords": ["phone case", "compatibility", "iPhone", "Android"],
+          "last_updated": "2024-06-02"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_chargers_001",
+        "title": "Charger Compatibility: USB-C, Lightning, and Micro-USB",
+        "content": "Chargers vary by port type and power output. USB-C has become the universal standard for most modern devices, supporting fast charging. Lightning is exclusive to Apple devices, while Micro-USB is now mostly used in older gadgets. Using a charger with the wrong wattage can slow charging or damage the battery, so always check device requirements.",
+        "metadata": {
+          "category": "compatibility",
+          "subcategory": "charging",
+          "product_type": "chargers",
+          "topic": "charger_ports",
+          "keywords": ["USB-C", "Lightning", "Micro-USB", "fast charging"],
+          "last_updated": "2024-06-10"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_gaming_001",
+        "title": "Gaming Console Accessory Compatibility Matrix",
+        "content": "Accessories such as controllers, headsets, and chargers differ in compatibility across consoles. PlayStation controllers work only with PS4/PS5 models, while Xbox controllers are compatible with both consoles and PCs. Nintendo accessories are primarily platform-specific. Always verify compatibility labels before purchasing to avoid mismatches.",
+        "metadata": {
+          "category": "compatibility",
+          "subcategory": "gaming",
+          "product_type": "console_accessories",
+          "topic": "accessory_compatibility",
+          "keywords": ["gaming", "PlayStation", "Xbox", "Nintendo"],
+          "last_updated": "2024-06-22"
+        }
+    },
+    {
+        "doc_id": "product_category_fashion_care_001",
+        "title": "How to Care for Leather Products",
+        "content": "Leather requires regular care to maintain its durability and appearance. Use a soft cloth to clean dust and apply conditioner every few months to prevent cracking. Keep leather products away from moisture and direct sunlight. For stains, use specialized leather cleaners rather than household detergents.",
+        "metadata": {
+          "category": "care_maintenance",
+          "subcategory": "fashion",
+          "product_type": "leather_goods",
+          "topic": "leather_care",
+          "keywords": ["leather care", "cleaning", "conditioning"],
+          "last_updated": "2024-07-05"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_care_001",
+        "title": "Electronics Cleaning Best Practices",
+        "content": "To keep electronics performing well, clean them regularly using microfiber cloths. Avoid spraying liquids directly on devices; instead, lightly dampen the cloth with isopropyl alcohol. Dust vents to prevent overheating, and use compressed air for keyboards. Always unplug devices before cleaning.",
+        "metadata": {
+          "category": "care_maintenance",
+          "subcategory": "electronics",
+          "product_type": "devices",
+          "topic": "cleaning",
+          "keywords": ["clean electronics", "microfiber cloth", "dust", "keyboard cleaning"],
+          "last_updated": "2024-07-12"
+        }
+    },
+    {
+        "doc_id": "product_category_fashion_care_002",
+        "title": "Washing Instructions for Different Fabric Types",
+        "content": "Different fabrics require specific washing techniques. Cotton can withstand machine washing at warm temperatures, while wool should be washed cold or dry-cleaned. Silk needs gentle detergent and cold water. Synthetic fabrics like polyester are durable but should avoid high heat drying. Following correct care guidelines extends fabric life.",
+        "metadata": {
+          "category": "care_maintenance",
+          "subcategory": "fashion",
+          "product_type": "fabric",
+          "topic": "washing",
+          "keywords": ["fabric care", "washing guide", "silk", "cotton", "wool"],
+          "last_updated": "2024-07-20"
+        }
+    },
+    {
+        "doc_id": "product_category_electronics_care_003",
+        "title": "Battery Maintenance Tips for Longevity",
+        "content": "To extend battery life on phones and laptops, avoid keeping the device at 100% or 0% charge for long periods. The ideal charging range is 20–80%. Keep your device cool, as heat is a major factor in battery degradation. Using certified chargers also helps maintain battery health over time.",
+        "metadata": {
+          "category": "care_maintenance",
+          "subcategory": "electronics",
+          "product_type": "battery_devices",
+          "topic": "battery_life",
+          "keywords": ["battery health", "charging tips", "device care"],
+          "last_updated": "2024-07-28"
+        }
+    }      
+]

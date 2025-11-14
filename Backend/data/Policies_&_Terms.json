@@ -1,0 +1,159 @@
+[
+    {
+      "doc_id": "policy_returns_general_merch_001",
+      "title": "Return Policy for General Merchandise",
+      "content": "Our return policy for general merchandise allows customers to return eligible items within 30 days of delivery for a refund or exchange. Items must be unused, in original packaging, and include all accessories and documentation. To start a return, visit your account dashboard, select the relevant order from Order History, and click 'Return Item'. A prepaid return label will be emailed to you within 24 hours. Once the product arrives at our facility, our team inspects it within 2–3 business days. Refunds are processed to the original payment method within 5–7 business days. If the return is due to a change of mind, a $5.99 return shipping fee is deducted from the refund. If we shipped the wrong item or the product is defective, return shipping is free. Items marked as 'final sale' or 'non-returnable' are excluded from this policy. Examples include customized items, opened hygiene products, and certain discounted merchandise. If your item arrived damaged, contact our support team within 48 hours with photos to expedite resolution.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "general_merchandise",
+        "policy_type": "customer_facing",
+        "keywords": ["general returns", "refund", "exchange", "return window"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_returns_electronics_002",
+      "title": "Return Policy for Electronics and Technology",
+      "content": "Electronics and technology products have a 15-day return window due to their specialized nature and higher value. Items must be returned with all original accessories, manuals, packaging, and serial numbers intact. Products showing signs of activation, installation, or physical damage may not be eligible for a full refund. Before returning any electronic device, perform a factory reset and remove all personal data. To begin the return process, go to your account’s Order History and select 'Return Item' for the relevant order. A return label will be issued after a short verification process. Refunds are processed within 7–10 business days after inspection. If the item is defective out of the box, we offer either a replacement or a full refund with free return shipping. Opened software, digital downloads, and items with missing serial numbers are non-returnable. Some premium electronics may also be subject to restocking fees depending on their condition upon return.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "electronics",
+        "policy_type": "customer_facing",
+        "keywords": ["electronics return", "technology", "defective device", "15-day return"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_returns_clothing_003",
+      "title": "Return Policy for Clothing and Shoes",
+      "content": "Clothing and footwear can be returned within 30 days of delivery for a refund or exchange. Items must be unworn, unwashed, and free from stains, perfume, or signs of use. All original tags must remain attached. Shoe boxes must be returned undamaged and placed inside a shipping box. To initiate a return, log into your account, open your Order History, and choose the 'Return Item' option. Once we receive the return, our team completes inspection within 3 business days. Refunds are issued within 5–7 business days. For size or fit issues, exchanges are free. For change-of-mind returns, a $4.99 return label fee applies. Intimate wear such as lingerie, swimwear, and socks are only returnable if unopened and in their original sealed packaging due to hygiene reasons. If you believe the item is defective, please upload photos during the return request for faster approval.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "clothing_and_shoes",
+        "policy_type": "customer_facing",
+        "keywords": ["clothing return", "shoe return", "size exchange", "fashion"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_returns_perishables_004",
+      "title": "Return Policy for Perishable Items",
+      "content": "Perishable goods such as groceries, fresh foods, frozen items, flowers, and meal kits are not eligible for standard returns due to safety and quality control requirements. If a perishable item arrives damaged, spoiled, or not as described, customers must report the issue within 24 hours of delivery. Photos or videos of the damaged item may be required for verification. Once approved, we offer either a replacement shipment or a refund to the original payment method. For subscription-based food boxes, we provide credit if an incorrect or missing item is reported within the same delivery window. Since returns cannot be physically accepted, customers are advised to dispose of spoiled items safely. Items that were improperly stored after delivery or not retrieved from outdoor locations in time may not qualify for refunds. Our team may request additional details such as temperature logs for high-value perishables.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "perishable_items",
+        "policy_type": "customer_facing",
+        "keywords": ["perishable", "food return", "spoilage", "fresh items"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_returns_international_005",
+      "title": "International Returns Process",
+      "content": "International customers may return eligible items within 30 days of delivery. Due to varying customs regulations, international returns follow a slightly different process. Customers must contact our support team before initiating the return to receive a customs-compliant return label and instructions. Return shipping costs vary by region, and for change-of-mind returns, customers are responsible for all shipping and customs fees. For defective items or shipping errors, we cover return shipping and reimburse applicable duties. Refunds are processed only after the returned item passes customs clearance and reaches our international warehouse, which may take 10–21 business days. Items restricted by local laws or classified as hazardous materials cannot be returned. Our system will automatically flag such items during the initiation process. If customs rejects the return due to missing paperwork, we cannot guarantee a refund, so customers must follow documentation instructions carefully.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "international_customers",
+        "policy_type": "customer_facing",
+        "keywords": ["international return", "customs", "duties", "global"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_refund_timeline_006",
+      "title": "Refund Timeline and Processing",
+      "content": "Refunds typically follow a multi-step process. Once a returned item reaches our warehouse, an inspection is completed within 2–3 business days. After inspection approval, refunds are issued to the original payment method within 5–7 business days. Some banks or credit card providers may take additional time to post the refund. For orders paid with digital wallets, refunds usually appear within 1–3 business days after processing. Refunds for cash-on-delivery orders are issued as store credit unless bank transfer details are provided. If your refund appears delayed, you may request a refund trace from our support team after 10 business days. Refunds for international returns may take up to 21 business days due to customs processing. In cases of partial refunds—such as missing accessories, opened packaging, or restocking fees—we send a detailed breakdown explaining any deductions.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "refunds",
+        "applies_to": "all_customers",
+        "keywords": ["refund processing", "timeline", "inspection", "payment methods"],
+        "policy_type": "customer_facing",
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_store_credit_007",
+      "title": "Store Credit vs Original Payment Method",
+      "content": "Customers may choose between receiving their refund via store credit or to their original payment method when eligible. Store credit is issued instantly after the return is approved, and it can be used on any future purchase with no expiration date. Refunds to the original payment method follow the standard processing timeline of 5–7 business days. Certain payment methods, such as cash-on-delivery and gift card purchases, are eligible only for store credit refunds. Store credit cannot be transferred between accounts or converted into cash. If a purchase was partially paid with a coupon or discount code, the refund amount excludes the promotional value. In rare cases where the original payment method has expired, we issue the refund as store credit. For prepaid cards, refunds may take longer depending on issuer policies. Customers may request a breakdown of how credit or refunds were calculated at any time.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "refunds",
+        "applies_to": "all_customers",
+        "policy_type": "customer_facing",
+        "keywords": ["store credit", "refund method", "payment options"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_restocking_fees_008",
+      "title": "Restocking Fees Explained",
+      "content": "Certain products may incur a restocking fee when returned, especially if they are high-value, customized, or require special handling. Restocking fees typically range from 5% to 20% of the item’s purchase price. These fees help cover inspection, repackaging, and quality testing costs. Restocking fees apply only when the return is due to a change of mind, incorrect purchase, or opened but unused items. They do not apply to defective items or cases where we shipped the wrong product. Items missing accessories, manuals, or packaging may incur higher fees. Before completing a return, customers will see a detailed breakdown of any applicable fees during the return initiation process. If you believe a restocking fee was applied in error, you may contact our support team for review. Restocking fees are deducted directly from the refund amount and are clearly itemized in the refund summary.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "returns",
+        "applies_to": "high_value_items",
+        "policy_type": "customer_facing",
+        "keywords": ["restocking fee", "refund deductions", "return charges"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_cancel_before_ship_009",
+      "title": "How to Cancel an Order Before Shipping",
+      "content": "Orders can be canceled at no cost before they enter the shipping or fulfillment stage. To cancel an order, log into your account, go to Order History, and select 'Cancel Order' next to the item. If the button is unavailable, the order has already moved to processing. Once your cancellation request is submitted, you will receive confirmation within 1–2 hours. Payments are automatically reversed to the original payment method within 3–5 business days. For orders paid with store credit, the credit is returned instantly. If you applied discount codes or vouchers, they will be reactivated within 24 hours. Prepaid shipping labels and subscriptions tied to the order will also be canceled automatically. If you need urgent assistance, our support team can attempt a manual stop, though success depends on order status.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "cancellation",
+        "applies_to": "all_orders",
+        "policy_type": "customer_facing",
+        "keywords": ["cancel order", "before shipping", "order hold"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_cancel_after_processing_010",
+      "title": "Cancellation After Order Processing",
+      "content": "Once an order reaches the processing stage, it cannot be canceled directly through the website. Processing includes packaging, quality checks, and handoff preparation. If you still wish to cancel, you may contact our customer support team, who will attempt to intercept the order. Interception is not guaranteed, especially during peak seasons or for expedited shipments. If the order has already been shipped, it must be handled as a return after delivery, following our standard return policy. Refunds for canceled orders are issued once the product is successfully returned and inspected. Any promotional codes used in the order may or may not be reactivated depending on their terms. If you decline the shipment upon delivery, it will be automatically routed back to our warehouse, and a refund will be issued minus return shipping costs unless the issue was caused by our error.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "cancellation",
+        "applies_to": "processed_orders",
+        "policy_type": "customer_facing",
+        "keywords": ["order processing", "cancellation", "intercept"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_subscription_cancellation_011",
+      "title": "Subscription Cancellation Policy",
+      "content": "Subscriptions such as monthly boxes, digital memberships, and automatic reorder programs can be canceled at any time through the Subscriptions section of your account dashboard. Cancellations take effect at the end of the current billing cycle unless otherwise stated. If a subscription box has already been prepared or shipped, the cancellation will apply to the next cycle. Digital subscriptions may offer immediate cancellation depending on their terms, but partial refunds are not typically provided. For prepaid annual plans, a prorated refund may be available if cancellation occurs within the first 30 days of activation. Promotional pricing and bundled discounts may be forfeited if the subscription is terminated early. Customers will receive an email confirmation when the cancellation is completed. To avoid being charged for the next cycle, cancellations should be made at least 48 hours before the billing date.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "cancellation",
+        "applies_to": "subscriptions",
+        "policy_type": "customer_facing",
+        "keywords": ["subscription", "billing cycle", "auto-renewal"],
+        "effective_date": "2024-01-01"
+      }
+    },
+    {
+      "doc_id": "policy_preorder_cancellation_012",
+      "title": "Pre-order Cancellation Terms",
+      "content": "Pre-orders can be canceled at any time before the product’s official release date. To cancel, visit Order History and select 'Cancel Pre-order'. Refunds are processed within 3–5 business days. For limited-edition items or high-demand releases, cancellations may close 72 hours before shipment to ensure fair allocation. If the pre-order includes bonus content or early-access privileges, cancellation may void access immediately. Once a pre-order item enters the shipping stage, standard return policies apply, and the item cannot be canceled directly. In rare cases where manufacturing delays or supply issues occur, customers may request a free cancellation and receive compensation in the form of store credit. If the product price changes between order placement and release, customers are charged the price shown at the time of purchase.",
+      "metadata": {
+        "category": "policy",
+        "subcategory": "cancellation",
+        "applies_to": "preorders",
+        "policy_type": "customer_facing",
+        "keywords": ["pre-order", "release date", "limited edition"],
+        "effective_date": "2024-01-01"
+      }
+    }
+]
+  
