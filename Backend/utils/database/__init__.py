@@ -6,7 +6,11 @@ from .db import (
     create_messages_table,
     create_default_chat_history,
     generate_random_conversation_name,
-    create_test_user
+    create_test_user,
+    create_support_tickets_table,
+    create_support_ticket,
+    get_all_support_tickets,
+    update_support_ticket_status
 )
 from .models import (
     UserRequest, 
@@ -27,6 +31,10 @@ __all__ = [
     "create_default_chat_history",
     "generate_random_conversation_name",
     "create_test_user",
+    "create_support_tickets_table",
+    "create_support_ticket",
+    "get_all_support_tickets",
+    "update_support_ticket_status",
     "UserRequest", 
     "UserResponse",
     "MessageCreate",

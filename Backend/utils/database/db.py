@@ -74,6 +74,35 @@ def create_messages_table():
     print("Messages table initialized")
 
 
+def create_support_tickets_table():
+    """Create the support_tickets table if it doesn't exist"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS support_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id TEXT NOT NULL UNIQUE,
+            user_query TEXT NOT NULL,
+            intent TEXT,
+            sentiment TEXT,
+            analysis TEXT,
+            priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'urgent')),
+            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'in_progress', 'resolved', 'closed')),
+            category TEXT,
+            assigned_to TEXT,
+            resolution_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TIMESTAMP
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+    print("Support tickets table initialized")
+
+
 def generate_random_conversation_name() -> str:
     """Generate a random but meaningful conversation name"""
     adjectives = [
@@ -264,6 +293,227 @@ def load_personalised_agent_csv_data():
     print(f"CSV data ingestion complete: {loaded_count} tables loaded, {skipped_count} tables skipped")
 
 
+def create_support_ticket(user_query: str, intent: str, sentiment: str, analysis: str, category: str = None) -> dict:
+    """
+    Create a new support ticket in the database.
+    
+    Args:
+        user_query: The user's query/complaint
+        intent: Classified intent from triage
+        sentiment: Sentiment classification
+        analysis: Analysis from triage agent
+        category: Optional category of the issue
+        
+    Returns:
+        Dictionary with ticket details
+    """
+    import uuid
+    from datetime import datetime
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Generate unique ticket ID
+        ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Determine priority based on sentiment
+        if sentiment == "negative":
+            priority = "high"
+        elif sentiment == "neutral":
+            priority = "medium"
+        else:
+            priority = "low"
+        
+        # Insert ticket
+        cursor.execute("""
+            INSERT INTO support_tickets (
+                ticket_id, user_query, intent, sentiment, analysis, 
+                priority, status, category
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (ticket_id, user_query, intent, sentiment, analysis, priority, "open", category))
+        
+        ticket_db_id = cursor.lastrowid
+        conn.commit()
+        
+        # Retrieve the created ticket
+        cursor.execute("""
+            SELECT * FROM support_tickets WHERE id = ?
+        """, (ticket_db_id,))
+        
+        row = cursor.fetchone()
+        
+        # Convert to dictionary
+        ticket = {
+            "id": row[0],
+            "ticket_id": row[1],
+            "user_query": row[2],
+            "intent": row[3],
+            "sentiment": row[4],
+            "analysis": row[5],
+            "priority": row[6],
+            "status": row[7],
+            "category": row[8],
+            "assigned_to": row[9],
+            "resolution_notes": row[10],
+            "created_at": row[11],
+            "updated_at": row[12],
+            "resolved_at": row[13]
+        }
+        
+        print(f"Support ticket created: {ticket_id}")
+        return ticket
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error creating support ticket: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+def get_all_support_tickets(status_filter: str = None):
+    """
+    Get all support tickets, optionally filtered by status.
+    
+    Args:
+        status_filter: Optional status to filter by (open, in_progress, resolved, closed)
+        
+    Returns:
+        List of ticket dictionaries
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        if status_filter:
+            cursor.execute("""
+                SELECT * FROM support_tickets 
+                WHERE status = ?
+                ORDER BY created_at DESC
+            """, (status_filter,))
+        else:
+            cursor.execute("""
+                SELECT * FROM support_tickets 
+                ORDER BY created_at DESC
+            """)
+        
+        rows = cursor.fetchall()
+        
+        tickets = []
+        for row in rows:
+            ticket = {
+                "id": row[0],
+                "ticket_id": row[1],
+                "user_query": row[2],
+                "intent": row[3],
+                "sentiment": row[4],
+                "analysis": row[5],
+                "priority": row[6],
+                "status": row[7],
+                "category": row[8],
+                "assigned_to": row[9],
+                "resolution_notes": row[10],
+                "created_at": row[11],
+                "updated_at": row[12],
+                "resolved_at": row[13]
+            }
+            tickets.append(ticket)
+        
+        return tickets
+        
+    except Exception as e:
+        print(f"Error retrieving support tickets: {e}")
+        raise
+    finally:
+        conn.close()
+
+
+def update_support_ticket_status(ticket_id: str, status: str, assigned_to: str = None, resolution_notes: str = None):
+    """
+    Update the status of a support ticket.
+    
+    Args:
+        ticket_id: The ticket ID to update
+        status: New status (open, in_progress, resolved, closed)
+        assigned_to: Optional agent assigned to the ticket
+        resolution_notes: Optional notes about the resolution
+        
+    Returns:
+        Updated ticket dictionary
+    """
+    from datetime import datetime
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Build update query dynamically
+        update_fields = ["status = ?", "updated_at = ?"]
+        params = [status, datetime.now().isoformat()]
+        
+        if assigned_to is not None:
+            update_fields.append("assigned_to = ?")
+            params.append(assigned_to)
+        
+        if resolution_notes is not None:
+            update_fields.append("resolution_notes = ?")
+            params.append(resolution_notes)
+        
+        if status in ["resolved", "closed"]:
+            update_fields.append("resolved_at = ?")
+            params.append(datetime.now().isoformat())
+        
+        params.append(ticket_id)
+        
+        query = f"""
+            UPDATE support_tickets 
+            SET {', '.join(update_fields)}
+            WHERE ticket_id = ?
+        """
+        
+        cursor.execute(query, params)
+        conn.commit()
+        
+        # Retrieve updated ticket
+        cursor.execute("""
+            SELECT * FROM support_tickets WHERE ticket_id = ?
+        """, (ticket_id,))
+        
+        row = cursor.fetchone()
+        
+        if not row:
+            raise ValueError(f"Ticket {ticket_id} not found")
+        
+        ticket = {
+            "id": row[0],
+            "ticket_id": row[1],
+            "user_query": row[2],
+            "intent": row[3],
+            "sentiment": row[4],
+            "analysis": row[5],
+            "priority": row[6],
+            "status": row[7],
+            "category": row[8],
+            "assigned_to": row[9],
+            "resolution_notes": row[10],
+            "created_at": row[11],
+            "updated_at": row[12],
+            "resolved_at": row[13]
+        }
+        
+        print(f"Support ticket updated: {ticket_id} -> {status}")
+        return ticket
+        
+    except Exception as e:
+        conn.rollback()
+        print(f"Error updating support ticket: {e}")
+        raise
+    finally:
+        conn.close()
+
+
 def initialize_database():
     """Initialize the database if it doesn't exist"""
     if not DB_PATH.exists():
@@ -278,6 +528,7 @@ def initialize_database():
     create_users_table()
     create_chat_histories_table()
     create_messages_table()
+    create_support_tickets_table()
     
     # Create test user
     create_test_user()

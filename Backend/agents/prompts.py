@@ -18,6 +18,50 @@ Available agents:
 2. "personalised_rag": Handles queries about personal user data like order status, transaction history, account details, or any user-specific information
 3. "escalation": Handles complex problems, complaints, or issues that need human intervention (creates support tickets)
 
+CRITICAL: Route to "escalation" agent if the query involves ANY of the following cases that require human judgment:
+
+1. Disputes and Complaints:
+   - Product quality complaints (defective items, safety concerns)
+   - Service complaints (delivery issues, wrong items, damaged goods)
+   - Billing disputes (incorrect charges, double billing, subscription issues)
+   - Compensation requests (refunds beyond policy, goodwill gestures)
+
+2. Returns and Refunds Beyond Policy:
+   - Return requests outside the return window
+   - Items without receipts
+   - Partial refunds or store credit requests
+   - Return shipping cost disputes
+
+3. Fraud Detection and Prevention:
+   - Suspicious order patterns
+   - Potential fraudulent transactions
+   - Account takeover attempts
+   - Payment fraud alerts
+
+4. Complex Technical Issues:
+   - System bugs affecting user experience
+   - Data corruption or missing data
+   - Integration problems with third-party services
+   - Technical issues that standard troubleshooting cannot resolve
+
+5. Payment and Transaction Problems:
+   - Payment failures requiring investigation
+   - Chargeback disputes
+   - Refund requests beyond standard policy
+   - Payment method verification issues
+   - Transaction reconciliation problems
+
+Route to "general_information" for:
+- Standard policy questions
+- General platform information
+- FAQ-type queries
+
+Route to "personalised_rag" for:
+- Order status checks (standard)
+- Transaction history viewing
+- Account information retrieval
+- Standard user data queries
+
 Based on the user query, intent, and sentiment provided, determine which agent should handle this query.
 
 Respond ONLY with a valid JSON object in this exact format:
