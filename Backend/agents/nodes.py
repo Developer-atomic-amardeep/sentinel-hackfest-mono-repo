@@ -3,10 +3,23 @@ import os
 import asyncio
 import sqlite3
 import csv
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pathlib import Path
 from agents.states import AgentState
 from agents.utils import call_deepseek_chat
+
+# Import stream writer for custom streaming
+try:
+    from langgraph.config import get_stream_writer
+    STREAMING_AVAILABLE = True
+except ImportError:
+    # Fallback for older Python versions or if not available
+    STREAMING_AVAILABLE = False
+    def get_stream_writer():
+        # Return a no-op writer if streaming is not available
+        def noop_writer(data):
+            pass
+        return noop_writer
 from agents.prompts import (
     TRIAGE_PROMPT, 
     SUPERVISOR_ROUTING_PROMPT,
@@ -29,6 +42,9 @@ def supervisor_node(state: AgentState) -> AgentState:
     Returns:
         Updated agent state
     """
+    # Get stream writer for custom streaming
+    writer = get_stream_writer()
+    
     supervisor_messages = state.get("supervisor_messages", [])
     
     # Log supervisor activity
@@ -36,6 +52,14 @@ def supervisor_node(state: AgentState) -> AgentState:
         # Initial pass - supervisor receives the query
         greeting_message = "Hello! We have received your query and are currently performing analysis in our system using our highly specialized AI agents. Please wait while we process your request..."
         supervisor_messages.append("Received user query, routing to triage agent")
+        
+        writer({
+            "node": "supervisor",
+            "type": "progress",
+            "message": "Received user query, routing to triage agent",
+            "step": "initial_routing"
+        })
+        
         return {
             **state,
             "greeting_message": greeting_message,
@@ -44,6 +68,13 @@ def supervisor_node(state: AgentState) -> AgentState:
     else:
         # After triage - supervisor calls DeepSeek to decide next agent
         supervisor_messages.append("Triage complete. Analyzing routing decision...")
+        
+        writer({
+            "node": "supervisor",
+            "type": "progress",
+            "message": "Triage complete. Analyzing routing decision...",
+            "step": "routing_decision"
+        })
         
         user_query = state["user_query"]
         intent = state.get("intent", "unknown")
@@ -59,6 +90,13 @@ Based on this information, which agent should handle this query?"""
         
         try:
             # Call DeepSeek to determine routing
+            writer({
+                "node": "supervisor",
+                "type": "progress",
+                "message": "Calling DeepSeek to determine routing...",
+                "step": "routing_api_call"
+            })
+            
             response = call_deepseek_chat(
                 messages=[
                     {"role": "system", "content": SUPERVISOR_ROUTING_PROMPT},
@@ -80,6 +118,15 @@ Based on this information, which agent should handle this query?"""
             reasoning = routing_result.get("reasoning", "Default routing")
             
             supervisor_messages.append(f"Routing to {next_agent} agent - {reasoning}")
+            
+            writer({
+                "node": "supervisor",
+                "type": "progress",
+                "message": f"Routing to {next_agent} agent - {reasoning}",
+                "step": "routing_complete",
+                "next_agent": next_agent,
+                "reasoning": reasoning
+            })
             
             return {
                 **state,
@@ -108,14 +155,33 @@ def triage_node(state: AgentState) -> AgentState:
     Returns:
         Updated agent state with intent and sentiment
     """
+    # Get stream writer for custom streaming
+    writer = get_stream_writer()
+    
     user_query = state["user_query"]
     triage_messages = state.get("triage_messages", [])
 
     user_prompt = f"Analyze this user query: \"{user_query}\""
     
+    # Stream progress update
+    writer({
+        "node": "triage",
+        "type": "progress",
+        "message": "Starting query analysis...",
+        "step": "initialization"
+    })
+    
     # Call DeepSeek API
     try:
         triage_messages.append("Analyzing query with DeepSeek...")
+        
+        # Stream that we're calling the API
+        writer({
+            "node": "triage",
+            "type": "progress",
+            "message": "Calling DeepSeek API for classification...",
+            "step": "api_call"
+        })
         
         response = call_deepseek_chat(
             messages=[
@@ -139,6 +205,14 @@ def triage_node(state: AgentState) -> AgentState:
                 cleaned_response = cleaned_response[4:]
             cleaned_response = cleaned_response.strip()
         
+        # Stream that we're parsing the response
+        writer({
+            "node": "triage",
+            "type": "progress",
+            "message": "Parsing classification results...",
+            "step": "parsing"
+        })
+        
         # Parse the JSON response
         analysis_result = json.loads(cleaned_response)
         
@@ -147,6 +221,16 @@ def triage_node(state: AgentState) -> AgentState:
         analysis = analysis_result.get("analysis", "Analysis completed")
         
         triage_messages.append(f"Classification complete - Intent: {intent}, Sentiment: {sentiment}")
+        
+        # Stream completion with results
+        writer({
+            "node": "triage",
+            "type": "progress",
+            "message": f"Classification complete - Intent: {intent}, Sentiment: {sentiment}",
+            "step": "complete",
+            "intent": intent,
+            "sentiment": sentiment
+        })
         
         return {
             **state,
@@ -198,10 +282,21 @@ def general_information_node(state: AgentState) -> AgentState:
     Returns:
         Updated agent state with final response
     """
+    # Get stream writer for custom streaming
+    writer = get_stream_writer()
+    
     general_information_messages = state.get("general_information_messages", [])
     user_query = state["user_query"]
     
     general_information_messages.append("Processing query about platform information...")
+    
+    # Stream initial progress
+    writer({
+        "node": "general_information",
+        "type": "progress",
+        "message": "Processing query about platform information...",
+        "step": "start"
+    })
     
     # Define data directory path
     data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
@@ -216,6 +311,13 @@ def general_information_node(state: AgentState) -> AgentState:
     try:
         # ===== STEP 1: Category Selection =====
         general_information_messages.append("Step 1: Selecting relevant categories...")
+        
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": "Step 1: Selecting relevant categories...",
+            "step": "category_selection"
+        })
         
         category_prompt = f"User Query: {user_query}"
         
@@ -240,15 +342,39 @@ def general_information_node(state: AgentState) -> AgentState:
         
         general_information_messages.append(f"Selected categories: {', '.join(selected_categories)}")
         
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": f"Selected categories: {', '.join(selected_categories)}",
+            "step": "category_selection_complete",
+            "categories": selected_categories
+        })
+        
         # ===== STEP 2: Document Selection for each category =====
         all_selected_doc_ids = []
         
-        for category in selected_categories:
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": f"Step 2: Selecting documents from {len(selected_categories)} categories...",
+            "step": "document_selection"
+        })
+        
+        for idx, category in enumerate(selected_categories):
             if category not in category_files:
                 general_information_messages.append(f"Warning: Unknown category '{category}', skipping...")
                 continue
             
             general_information_messages.append(f"Step 2: Selecting documents from {category}...")
+            
+            writer({
+                "node": "general_information",
+                "type": "progress",
+                "message": f"Processing category {idx+1}/{len(selected_categories)}: {category}...",
+                "step": "document_selection_category",
+                "category": category,
+                "progress": f"{idx+1}/{len(selected_categories)}"
+            })
             
             # Load the category JSON file
             category_file_path = os.path.join(data_dir, category_files[category])
@@ -306,8 +432,23 @@ Select the relevant doc_ids that would help answer the user's query."""
         
         general_information_messages.append(f"Total documents selected: {len(all_selected_doc_ids)}")
         
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": f"Total documents selected: {len(all_selected_doc_ids)}",
+            "step": "document_selection_complete",
+            "doc_count": len(all_selected_doc_ids)
+        })
+        
         # ===== STEP 3: Extract content and generate final answer =====
         general_information_messages.append("Step 3: Generating final answer...")
+        
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": "Step 3: Generating final answer from retrieved documents...",
+            "step": "final_answer_generation"
+        })
         
         # Extract full content for selected doc_ids
         retrieved_documents = []
@@ -352,6 +493,13 @@ Please provide a helpful answer to the user's query based on the above informati
         )
         
         general_information_messages.append("Response generated successfully")
+        
+        writer({
+            "node": "general_information",
+            "type": "progress",
+            "message": "Response generated successfully",
+            "step": "complete"
+        })
         
         return {
             **state,
@@ -602,10 +750,20 @@ def personalised_rag_node(state: AgentState) -> AgentState:
     Returns:
         Updated agent state with final response
     """
+    # Get stream writer for custom streaming
+    writer = get_stream_writer()
+    
     personalised_rag_messages = state.get("personalised_rag_messages", [])
     user_query = state["user_query"]
     
     personalised_rag_messages.append("Processing query about personal user data...")
+    
+    writer({
+        "node": "personalised_rag",
+        "type": "progress",
+        "message": "Processing query about personal user data...",
+        "step": "start"
+    })
     
     try:
         # Define paths
@@ -614,16 +772,47 @@ def personalised_rag_node(state: AgentState) -> AgentState:
         
         # Load CSV data into database if needed
         personalised_rag_messages.append("Setting up database from CSV files...")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": "Setting up database from CSV files...",
+            "step": "database_setup"
+        })
+        
         load_csv_data_to_db(data_dir, db_path)
         
         # ===== STEP 1: Get table schemas =====
         personalised_rag_messages.append("Step 1: Loading table schemas...")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": "Step 1: Loading table schemas...",
+            "step": "schema_loading"
+        })
+        
         schemas = get_table_schemas()
         table_schemas_str = format_table_schemas(schemas)
         personalised_rag_messages.append(f"Loaded {len(schemas)} tables")
         
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": f"Loaded {len(schemas)} tables",
+            "step": "schema_loading_complete",
+            "table_count": len(schemas)
+        })
+        
         # ===== STEP 2: Generate subqueries =====
         personalised_rag_messages.append("Step 2: Generating subqueries...")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": "Step 2: Generating subqueries...",
+            "step": "subquery_generation"
+        })
         
         subquery_prompt = SUBQUERY_GENERATION_PROMPT.format(
             table_schemas=table_schemas_str
@@ -650,11 +839,26 @@ def personalised_rag_node(state: AgentState) -> AgentState:
         
         personalised_rag_messages.append(f"Generated {len(subqueries)} subqueries")
         
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": f"Generated {len(subqueries)} subqueries",
+            "step": "subquery_generation_complete",
+            "subquery_count": len(subqueries)
+        })
+        
         if not subqueries:
             raise ValueError("No subqueries generated")
         
         # ===== STEP 3: Generate SQL queries in parallel =====
         personalised_rag_messages.append("Step 3: Generating SQL queries in parallel...")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": f"Step 3: Generating {len(subqueries)} SQL queries in parallel...",
+            "step": "sql_generation"
+        })
         
         async def generate_all_sql():
             tasks = [
@@ -674,11 +878,26 @@ def personalised_rag_node(state: AgentState) -> AgentState:
         
         personalised_rag_messages.append(f"Generated {len(valid_sql_queries)} valid SQL queries")
         
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": f"Generated {len(valid_sql_queries)} valid SQL queries",
+            "step": "sql_generation_complete",
+            "valid_query_count": len(valid_sql_queries)
+        })
+        
         if not valid_sql_queries:
             raise ValueError("No valid SQL queries generated")
         
         # ===== STEP 4: Execute SQL queries in parallel =====
         personalised_rag_messages.append("Step 4: Executing SQL queries in parallel...")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": f"Step 4: Executing {len(valid_sql_queries)} SQL queries in parallel...",
+            "step": "sql_execution"
+        })
         
         async def execute_all_queries():
             tasks = [
@@ -710,6 +929,13 @@ def personalised_rag_node(state: AgentState) -> AgentState:
         # ===== STEP 5: Generate final answer =====
         personalised_rag_messages.append("Step 5: Generating final answer...")
         
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": "Step 5: Generating final answer from query results...",
+            "step": "final_answer_generation"
+        })
+        
         # Format results for LLM
         results_context = "\n\n".join([
             f"Subquery: {r['subquery']}\n"
@@ -734,6 +960,13 @@ Please provide a helpful, personalized answer based on the above data."""
         )
         
         personalised_rag_messages.append("Response generated successfully")
+        
+        writer({
+            "node": "personalised_rag",
+            "type": "progress",
+            "message": "Response generated successfully",
+            "step": "complete"
+        })
         
         return {
             **state,
@@ -770,6 +1003,19 @@ def escalation_node(state: AgentState) -> AgentState:
     Returns:
         Updated agent state with final response
     """
+    # Get stream writer for custom streaming
+    writer = get_stream_writer()
+    
+    from pathlib import Path
+    import sys
+    
+    # Add parent directory to path to import database utilities
+    parent_dir = Path(__file__).parent.parent
+    if str(parent_dir) not in sys.path:
+        sys.path.insert(0, str(parent_dir))
+    
+    from utils.database import create_support_ticket
+    
     escalation_messages = state.get("escalation_messages", [])
     user_query = state["user_query"]
     intent = state.get("intent", "unknown")
@@ -778,43 +1024,105 @@ def escalation_node(state: AgentState) -> AgentState:
     
     escalation_messages.append("Creating support ticket for human agent...")
     
-    # TODO: Implement functionality to:
-    # 1. Generate unique ticket ID
-    # 2. Collect all relevant user information
-    # 3. Store ticket in database
-    # 4. Send notification to support team
-    # 5. Provide ticket details to user
+    writer({
+        "node": "escalation",
+        "type": "progress",
+        "message": "Creating support ticket for human agent...",
+        "step": "ticket_creation"
+    })
     
-    # Placeholder response for now
-    ticket_id = "TICKET-PLACEHOLDER-001"
-    
-    final_response = f"""[Escalation Agent Response]
+    try:
+        # Determine category based on intent and query content
+        category = "General Support"
+        query_lower = user_query.lower()
+        
+        if any(word in query_lower for word in ["refund", "return", "damaged", "defective", "broken"]):
+            category = "Returns & Refunds"
+        elif any(word in query_lower for word in ["payment", "charge", "billing", "transaction", "fraud"]):
+            category = "Payment Issues"
+        elif any(word in query_lower for word in ["delivery", "shipping", "wrong item", "missing"]):
+            category = "Delivery Issues"
+        elif any(word in query_lower for word in ["bug", "error", "crash", "not working", "technical"]):
+            category = "Technical Issues"
+        elif any(word in query_lower for word in ["account", "login", "password", "access"]):
+            category = "Account Issues"
+        
+        # Create ticket in database
+        ticket = create_support_ticket(
+            user_query=user_query,
+            intent=intent,
+            sentiment=sentiment,
+            analysis=analysis,
+            category=category
+        )
+        
+        ticket_id = ticket["ticket_id"]
+        priority = ticket["priority"]
+        status = ticket["status"]
+        
+        escalation_messages.append(f"Support ticket {ticket_id} created successfully in database")
+        
+        writer({
+            "node": "escalation",
+            "type": "progress",
+            "message": f"Support ticket {ticket_id} created successfully",
+            "step": "ticket_created",
+            "ticket_id": ticket_id,
+            "priority": priority
+        })
+        
+        # Generate user-friendly response
+        priority_message = ""
+        if priority == "high" or priority == "urgent":
+            priority_message = "Due to the nature of your issue, we've marked this as a high-priority ticket. "
+        
+        final_response = f"""Thank you for reaching out. Your issue has been escalated to our human support team.
 
-Thank you for reaching out. Your issue has been escalated to our human support team.
+**Ticket Details:**
+- **Ticket ID**: {ticket_id}
+- **Status**: {status.replace('_', ' ').title()}
+- **Priority**: {priority.title()}
+- **Category**: {category}
+- **Sentiment**: {sentiment.title()}
 
-Ticket Details:
-- Ticket ID: {ticket_id}
-- Status: Open
-- Priority: Medium
+{priority_message}A support agent will review your case and contact you shortly. You can use your ticket ID ({ticket_id}) to track the status of your request.
+
+**What happens next:**
+1. Your ticket has been logged in our support system
+2. A human agent will review the details within 24 hours
+3. You'll receive updates via email or through our support portal
+4. Our team will work to resolve your issue as quickly as possible
+
+If you have any additional information to add, please reference your ticket ID: {ticket_id}
+
+Thank you for your patience and understanding.
+"""
+        
+        return {
+            **state,
+            "escalation_messages": escalation_messages,
+            "final_response": final_response
+        }
+        
+    except Exception as e:
+        escalation_messages.append(f"Error creating support ticket: {str(e)}")
+        
+        # Fallback response if database fails
+        fallback_response = f"""Thank you for reaching out. We're experiencing a technical issue with our ticketing system.
+
+Your issue has been noted:
 - Query: {user_query}
 - Intent: {intent}
 - Sentiment: {sentiment}
 
-A support agent will review your case and contact you shortly. The actual implementation will include:
-- Real ticket generation with unique ID
-- Database storage of ticket information
-- Email/notification system
-- Full user context and history
-- Integration with support ticket system
+Please try again in a few moments, or contact our support team directly. We apologize for the inconvenience.
 
-This is a template response that will be customized later.
+Error details (for support): {str(e)}
 """
-    
-    escalation_messages.append(f"Support ticket {ticket_id} created successfully")
-    
-    return {
-        **state,
-        "escalation_messages": escalation_messages,
-        "final_response": final_response
-    }
+        
+        return {
+            **state,
+            "escalation_messages": escalation_messages,
+            "final_response": fallback_response
+        }
 

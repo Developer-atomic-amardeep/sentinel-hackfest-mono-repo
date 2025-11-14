@@ -15,6 +15,8 @@ from utils.database import (
     initialize_database,
     create_default_chat_history,
     generate_random_conversation_name,
+    get_all_support_tickets,
+    update_support_ticket_status,
     UserRequest,
     UserResponse,
     MessageCreate,
@@ -131,56 +133,130 @@ def analyze_query_stream(request: AnalyzeQueryRequest):
             }
             
             # Stream the workflow execution
-            # stream_mode="updates" gives us state updates after each node
-            for chunk in workflow.stream(initial_state, stream_mode="updates"):
-                # chunk is a dict with node names as keys
-                for node_name, state_update in chunk.items():
-                    # Create a streaming event with only relevant data for the current node
-                    event_data = {
-                        "node": node_name,
-                        "user_query": request.user_query
+            # stream_mode=["updates", "custom"] gives us both state updates after each node
+            # AND custom progress updates from within nodes while they're running
+            for chunk in workflow.stream(initial_state, stream_mode=["updates", "custom"]):
+                try:
+                    # Handle tuple format: (mode, data) - sometimes LangGraph returns tuples
+                    if isinstance(chunk, tuple) and len(chunk) == 2:
+                        mode, data = chunk
+                        # Process based on mode
+                        if mode == "custom" and isinstance(data, dict):
+                            # Custom progress event
+                            event_data = {
+                                "type": "progress",
+                                "user_query": request.user_query,
+                                **data
+                            }
+                            yield f"data: {json.dumps(event_data)}\n\n"
+                            continue
+                        elif mode == "updates" and isinstance(data, dict):
+                            chunk = data  # Use the data part as chunk
+                        else:
+                            continue
+                    
+                    # Skip non-dict chunks
+                    if not isinstance(chunk, dict):
+                        continue
+                    
+                    # Check if this is a custom streaming event (has "type": "progress" or "node" key)
+                    # Custom events from get_stream_writer() will have the structure we defined in nodes
+                    is_custom_event = False
+                    custom_data = None
+                    
+                    # Check if this looks like a custom progress event
+                    # Custom events have "type": "progress" and "node" keys
+                    if chunk.get("type") == "progress" or ("node" in chunk and "step" in chunk):
+                        is_custom_event = True
+                        custom_data = chunk
+                    # Also check for LangGraph's custom event format
+                    elif "__custom__" in chunk:
+                        custom_data = chunk.get("__custom__")
+                        if isinstance(custom_data, dict):
+                            is_custom_event = True
+                    
+                    if is_custom_event and custom_data:
+                        # Custom data emitted from within nodes (progress updates)
+                        event_data = {
+                            "type": "progress",
+                            "user_query": request.user_query,
+                            **custom_data  # Include all custom data (node, message, step, etc.)
+                        }
+                        yield f"data: {json.dumps(event_data)}\n\n"
+                    
+                    else:
+                        # Handle state updates (after node completion)
+                        # chunk is a dict with node names as keys
+                        if not hasattr(chunk, 'items'):
+                            continue
+                            
+                        for node_name, state_update in chunk.items():
+                            # Skip internal LangGraph keys
+                            if node_name.startswith("__"):
+                                continue
+                            
+                            # Ensure state_update is a dict
+                            if not isinstance(state_update, dict):
+                                continue
+                                
+                            # Create a streaming event with only relevant data for the current node
+                            event_data = {
+                                "type": "state_update",
+                                "node": node_name,
+                                "user_query": request.user_query
+                            }
+                            
+                            # Add node-specific data based on which agent is executing
+                            if node_name == "supervisor":
+                                event_data["supervisor_messages"] = state_update.get("supervisor_messages", [])
+                                # Include greeting message if available
+                                if state_update.get("greeting_message"):
+                                    event_data["greeting_message"] = state_update.get("greeting_message")
+                                # Include routing decision if available
+                                if state_update.get("next_agent"):
+                                    event_data["next_agent"] = state_update.get("next_agent")
+                            
+                            elif node_name == "triage":
+                                event_data["triage_messages"] = state_update.get("triage_messages", [])
+                                # Include triage analysis results
+                                if state_update.get("intent"):
+                                    event_data["intent"] = state_update.get("intent")
+                                if state_update.get("sentiment"):
+                                    event_data["sentiment"] = state_update.get("sentiment")
+                                if state_update.get("analysis"):
+                                    event_data["analysis"] = state_update.get("analysis")
+                            
+                            elif node_name == "general_information":
+                                event_data["general_information_messages"] = state_update.get("general_information_messages", [])
+                                # Include final response if available
+                                if state_update.get("final_response"):
+                                    event_data["final_response"] = state_update.get("final_response")
+                            
+                            elif node_name == "personalised_rag":
+                                event_data["personalised_rag_messages"] = state_update.get("personalised_rag_messages", [])
+                                # Include final response if available
+                                if state_update.get("final_response"):
+                                    event_data["final_response"] = state_update.get("final_response")
+                            
+                            elif node_name == "escalation":
+                                event_data["escalation_messages"] = state_update.get("escalation_messages", [])
+                                # Include final response if available
+                                if state_update.get("final_response"):
+                                    event_data["final_response"] = state_update.get("final_response")
+                            
+                            # Format as Server-Sent Event
+                            yield f"data: {json.dumps(event_data)}\n\n"
+                
+                except Exception as chunk_error:
+                    # Log chunk processing errors but don't break the stream
+                    # This helps debug issues with specific chunk formats
+                    error_event = {
+                        "type": "error",
+                        "message": f"Error processing chunk: {str(chunk_error)}",
+                        "chunk_type": str(type(chunk).__name__)
                     }
-                    
-                    # Add node-specific data based on which agent is executing
-                    if node_name == "supervisor":
-                        event_data["supervisor_messages"] = state_update.get("supervisor_messages", [])
-                        # Include greeting message if available
-                        if state_update.get("greeting_message"):
-                            event_data["greeting_message"] = state_update.get("greeting_message")
-                        # Include routing decision if available
-                        if state_update.get("next_agent"):
-                            event_data["next_agent"] = state_update.get("next_agent")
-                    
-                    elif node_name == "triage":
-                        event_data["triage_messages"] = state_update.get("triage_messages", [])
-                        # Include triage analysis results
-                        if state_update.get("intent"):
-                            event_data["intent"] = state_update.get("intent")
-                        if state_update.get("sentiment"):
-                            event_data["sentiment"] = state_update.get("sentiment")
-                        if state_update.get("analysis"):
-                            event_data["analysis"] = state_update.get("analysis")
-                    
-                    elif node_name == "general_information":
-                        event_data["general_information_messages"] = state_update.get("general_information_messages", [])
-                        # Include final response if available
-                        if state_update.get("final_response"):
-                            event_data["final_response"] = state_update.get("final_response")
-                    
-                    elif node_name == "personalised_rag":
-                        event_data["personalised_rag_messages"] = state_update.get("personalised_rag_messages", [])
-                        # Include final response if available
-                        if state_update.get("final_response"):
-                            event_data["final_response"] = state_update.get("final_response")
-                    
-                    elif node_name == "escalation":
-                        event_data["escalation_messages"] = state_update.get("escalation_messages", [])
-                        # Include final response if available
-                        if state_update.get("final_response"):
-                            event_data["final_response"] = state_update.get("final_response")
-                    
-                    # Format as Server-Sent Event
-                    yield f"data: {json.dumps(event_data)}\n\n"
+                    yield f"data: {json.dumps(error_event)}\n\n"
+                    continue
             
             # Send final completion event
             yield f"data: {json.dumps({'event': 'complete'})}\n\n"
@@ -613,6 +689,113 @@ def generate_agora_token(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate token: {e}")
+
+
+# -------------------------------
+#     SUPPORT TICKETS ENDPOINTS
+# -------------------------------
+@app.get("/support-tickets")
+def get_support_tickets(status: str = Query(None, description="Filter by status: open, in_progress, resolved, closed")):
+    """
+    Get all support tickets, optionally filtered by status.
+    
+    This endpoint is used by human agents to view escalated tickets.
+    
+    Query Parameters:
+    - status (optional): Filter tickets by status (open, in_progress, resolved, closed)
+    
+    Returns:
+    - List of support tickets with all details
+    """
+    try:
+        tickets = get_all_support_tickets(status_filter=status)
+        
+        return {
+            "success": True,
+            "count": len(tickets),
+            "tickets": tickets
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve tickets: {str(e)}")
+
+
+@app.put("/support-tickets/{ticket_id}")
+def update_ticket_status(
+    ticket_id: str,
+    status: str = Query(..., description="New status: open, in_progress, resolved, closed"),
+    assigned_to: str = Query(None, description="Agent assigned to ticket"),
+    resolution_notes: str = Query(None, description="Notes about resolution")
+):
+    """
+    Update the status of a support ticket.
+    
+    This endpoint is used by human agents to update ticket status as they work on them.
+    
+    Path Parameters:
+    - ticket_id: The unique ticket ID (e.g., TKT-ABC12345)
+    
+    Query Parameters:
+    - status (required): New status (open, in_progress, resolved, closed)
+    - assigned_to (optional): Name of agent assigned to the ticket
+    - resolution_notes (optional): Notes about the resolution
+    
+    Returns:
+    - Updated ticket details
+    """
+    try:
+        # Validate status
+        valid_statuses = ["open", "in_progress", "resolved", "closed"]
+        if status not in valid_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+        
+        updated_ticket = update_support_ticket_status(
+            ticket_id=ticket_id,
+            status=status,
+            assigned_to=assigned_to,
+            resolution_notes=resolution_notes
+        )
+        
+        return {
+            "success": True,
+            "message": f"Ticket {ticket_id} updated successfully",
+            "ticket": updated_ticket
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update ticket: {str(e)}")
+
+
+@app.get("/support-tickets/{ticket_id}")
+def get_ticket_by_id(ticket_id: str):
+    """
+    Get a specific support ticket by ID.
+    
+    Path Parameters:
+    - ticket_id: The unique ticket ID (e.g., TKT-ABC12345)
+    
+    Returns:
+    - Ticket details
+    """
+    try:
+        # Get all tickets and filter by ID
+        all_tickets = get_all_support_tickets()
+        ticket = next((t for t in all_tickets if t["ticket_id"] == ticket_id), None)
+        
+        if not ticket:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+        
+        return {
+            "success": True,
+            "ticket": ticket
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve ticket: {str(e)}")
 
 
 # -------------------------------
