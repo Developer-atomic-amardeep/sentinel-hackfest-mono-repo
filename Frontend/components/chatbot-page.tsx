@@ -3,8 +3,12 @@
 import React, { useEffect, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import { Button } from "@/components/ui/button"
-import { Send, Menu, X, Settings, Moon, LogOut, Plus, Trash2, Mic, Paperclip, FileText, Image as ImageIcon, File } from "lucide-react"
+import { Send, Menu, X, Settings, Moon, LogOut, Plus, Trash2, Mic, Paperclip, FileText, Image as ImageIcon, File, ChevronsRight, ChevronsLeft, Loader2, CheckCircle, CircleDot } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+// Do NOT import ChatbotStreamVisualization, as requested.
+// We will integrate its logic directly into this component.
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"
 const AGORA_CHANNEL = process.env.NEXT_PUBLIC_AGORA_CHANNEL || "hackfest-sentinel"
@@ -27,6 +31,12 @@ interface ChatSession {
 interface ChatbotPageProps {
   userInfo: any
   onLogout: () => void
+}
+
+// Interface for agent visualization state
+interface AgentVizData {
+  progress: Array<{ time: number; message: string; raw: any }>
+  state: any | null
 }
 
 declare global {
@@ -59,6 +69,12 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
   const isStartingRef = useRef<boolean>(false)
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // --- New State for Visualization Panel ---
+  const [agents, setAgents] = useState<Record<string, AgentVizData>>({})
+  const [isVizPanelCollapsed, setIsVizPanelCollapsed] = useState(true)
+  const [isVizStreaming, setIsVizStreaming] = useState(false)
+  // -----------------------------------------
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -260,6 +276,52 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  // --- New Helper Function to process Visualization Events ---
+  const handleVizSSEEvent = (event: any) => {
+    // Backend sends { event: 'complete' } or { event: 'completion' }
+    if (event.event === "complete" || event.event === "completion") {
+      setIsVizPanelCollapsed(true); // Collapse on completion
+      setIsVizStreaming(false);
+      return;
+    }
+
+    if (event.type === "progress") {
+      const node = event.node || event.node_name || "unknown_agent";
+      setAgents((prev) => {
+        const copy = { ...prev };
+        if (!copy[node]) copy[node] = { progress: [], state: null };
+        const list = copy[node].progress.concat({
+          time: Date.now(),
+          message: event.message || event.step || JSON.stringify(event),
+          raw: event,
+        });
+        // Keep last 8 steps only to keep it lightweight
+        copy[node].progress = list.slice(-8); 
+        return copy;
+      });
+      return;
+    }
+
+    if (event.type === "state_update") {
+      const node = event.node || event.node_name || "unknown_agent";
+      setAgents((prev) => {
+        const copy = { ...prev };
+        if (!copy[node]) copy[node] = { progress: [], state: null };
+        copy[node].state = event;
+        // Also push a final progress summary for visual continuity
+        const list = copy[node].progress.concat({
+          time: Date.now(),
+          message: `Node completed`,
+          raw: event,
+        });
+        copy[node].progress = list.slice(-8);
+        return copy;
+      });
+      return;
+    }
+  }
+  // -----------------------------------------------------------
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if ((!inputValue.trim() && attachedFiles.length === 0) || !currentChatId) return
@@ -282,7 +344,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     
-    // Update the chat session in the sidebar with new message
     setChatSessions(prev => prev.map(chat => 
       chat.id === currentChatId 
         ? { ...chat, messages: updatedMessages, updatedAt: new Date() }
@@ -298,6 +359,12 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     setAttachedFiles([])
     
     setIsLoading(true)
+
+    // --- Reset and open visualization panel ---
+    setAgents({})
+    setIsVizPanelCollapsed(false)
+    setIsVizStreaming(true)
+    // ------------------------------------------
 
     try {
       let uploadedFilePaths: string[] = []
@@ -366,6 +433,11 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           try {
             const data = JSON.parse(line.slice(6))
 
+            // --- Handle Visualization Events ---
+            handleVizSSEEvent(data)
+            // ---------------------------------
+
+            // --- Handle Chat Message Chunks (Existing Logic) ---
             if (data.chunk) {
               accumulatedResponse += data.chunk
               
@@ -380,7 +452,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
                       timestamp: new Date(),
                     }]
                 
-                // Update sidebar chat session
                 setChatSessions(prevSessions => prevSessions.map(chat => 
                   chat.id === currentChatId 
                     ? { ...chat, messages: newMessages, updatedAt: new Date() }
@@ -406,7 +477,6 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
                       timestamp: new Date(),
                     }]
                 
-                // Final update to sidebar
                 setChatSessions(prevSessions => prevSessions.map(chat => 
                   chat.id === currentChatId 
                     ? { ...chat, messages: finalMessages, updatedAt: new Date() }
@@ -442,6 +512,8 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
       })
     } finally {
       setIsLoading(false)
+      setIsVizStreaming(false) // Ensure streaming status is reset
+      // Do not collapse panel on error, only on 'complete' event
     }
   }
 
@@ -547,9 +619,76 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
     }
   }
 
+// --- New Inner Component for Visualization (Updated) ---
+  const AgentBox = ({ name, data }: { name: string; data: AgentVizData }) => {
+    const isDone = !!data.state;
+    const progressCount = data.progress.length;
+
+    return (
+      <div className={`w-full max-w-none flex-shrink-0 ${darkMode ? "bg-gray-800" : "bg-white"} shadow-lg rounded-xl p-3 my-2 border-l-4 ${isDone ? "border-green-500" : "border-blue-500"}`}>
+        <div className="flex items-center justify-between">
+          <div className={`font-semibold text-sm truncate ${darkMode ? "text-gray-100" : "text-gray-800"}`}>{name}</div>
+          <div className={`text-xs px-2 py-0.5 rounded-full font-medium ${isDone ? (darkMode ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700") : (darkMode ? "bg-blue-800 text-blue-200" : "bg-blue-100 text-blue-700")}`}>
+            {isDone ? "Done" : "Running"}
+          </div>
+        </div>
+
+        <div className="mt-2.5 text-xs text-gray-600 dark:text-gray-300">
+          {progressCount > 0 ? (
+            <ul className="space-y-2 max-h-32 overflow-y-auto pr-1 scrollbar-hide">
+              {data.progress.map((p: any, i: number) => {
+                const isLastStep = i === progressCount - 1;
+
+                if (isDone) {
+                  // All steps are "done"
+                  return (
+                    <li key={p.time + i} className={`flex items-center gap-2 ${darkMode ? "text-green-400" : "text-green-600"}`}>
+                      <CheckCircle className="flex-shrink-0 w-3.5 h-3.5" />
+                      <div className="truncate opacity-80">{p.message}</div>
+                    </li>
+                  );
+                }
+                
+                // Still running
+                if (isLastStep) {
+                  // Last step is "active"
+                  return (
+                    <li key={p.time + i} className={`flex items-center gap-2 ${darkMode ? "text-blue-300" : "text-blue-600"}`}>
+                      <CircleDot className="flex-shrink-0 w-3.5 h-3.5 animate-pulse" />
+                      <div className="truncate font-medium">{p.message}</div>
+                    </li>
+                  );
+                }
+
+                // Previous steps are "completed"
+                return (
+                  <li key={p.time + i} className={`flex items-center gap-2 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+                    <CheckCircle className="flex-shrink-0 w-3.5 h-3.5 opacity-60" />
+                    <div className="truncate opacity-70 line-through">{p.message}</div>
+                  </li>
+                );
+
+              })}
+            </ul>
+          ) : (
+            <div className={`${darkMode ? "text-gray-500" : "text-gray-400"} italic`}>
+              {isDone ? "Completed (no steps)" : "Waiting..."}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  // ---------------------------------------------
+
+
   return (
-    <div className={`flex h-screen ${darkMode ? "bg-gray-900" : "bg-white"}`}>
-      <div className={`flex-1 flex ${showSettings ? "pointer-events-none" : "pointer-events-auto"}`}>
+    <div className={`relative h-screen ${darkMode ? "bg-gray-900" : "bg-white"} lg:flex`}>
+      
+      {/* Main Chat UI (Left + Center) */}
+      <div className={`flex w-full ${showSettings ? "pointer-events-none" : "pointer-events-auto"} overflow-hidden lg:flex-1`}>
+        
+        {/* Left Sidebar (Chat History) */}
         <aside className={`${sidebarOpen ? "w-72" : "w-0"} transition-all duration-300 ${darkMode ? "bg-gray-800" : "bg-gray-50"} border-r ${darkMode ? "border-gray-700" : "border-gray-200"} overflow-hidden flex flex-col shadow-sm`}>
           <div className="p-4">
             <Button onClick={handleNewChat} className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg py-2 shadow">
@@ -617,6 +756,7 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           </div>
         </aside>
 
+        {/* Center (Main Chat Window) */}
         <main className={`flex-1 flex flex-col transition-all duration-300 ${showSettings ? "blur-sm" : ""}`}>
           <header className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}>
             <div className="flex items-center gap-4">
@@ -625,7 +765,23 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
               </button>
               <h1 className={`text-xl font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}>Smart Customer Support</h1>
             </div>
-            <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Welcome, {userInfo?.name}</div>
+            
+            {/* --- New Visualization Toggle Button --- */}
+            <div className="flex items-center gap-4">
+              <div className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-600"}`}>Welcome, {userInfo?.name}</div>
+              
+              {Object.keys(agents).length > 0 && (
+                <button 
+                  onClick={() => setIsVizPanelCollapsed(prev => !prev)}
+                  className={`p-2 rounded-lg ${darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700"}`}
+                  title={isVizPanelCollapsed ? "Show agent workflow" : "Hide agent workflow"}
+                >
+                  {isVizPanelCollapsed ? <ChevronsLeft className="w-5 h-5" /> : <ChevronsRight className="w-5 h-5" />}
+                </button>
+              )}
+            </div>
+            {/* -------------------------------------- */}
+
           </header>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
@@ -754,7 +910,69 @@ export function ChatbotPage({ userInfo, onLogout }: ChatbotPageProps) {
           </div>
         </main>
       </div>
+      {/* --- Backdrop for Mobile Viz Panel --- */}
+      {!isVizPanelCollapsed && (
+        <div 
+          onClick={() => setIsVizPanelCollapsed(true)} 
+          className={`fixed inset-0 z-20 bg-black/40 backdrop-blur-sm lg:hidden`}
+          aria-hidden="true"
+        />
+      )}
+      {/* ------------------------------------- */}
+      {/* --- New Visualization Panel (Right) --- */}
+      <div
+        className={`transition-all duration-300 ease-in-out ${darkMode ? "bg-gray-800/80" : "bg-gray-50/80"} backdrop-blur-sm flex flex-col shadow-2xl 
+        fixed inset-y-0 right-0 z-30 w-full max-w-sm 
+        ${isVizPanelCollapsed ? "translate-x-full" : "translate-x-0"}
+        lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 
+        lg:border-l ${darkMode ? "lg:border-gray-700" : "lg:border-gray-200"}
+        ${isVizPanelCollapsed ? "lg:w-0" : "lg:w-[380px]"}`}
+        aria-hidden={isVizPanelCollapsed}
+      >
+        {!isVizPanelCollapsed && (
+          <div className="w-full h-full flex flex-col lg:w-[380px]">
+            <div className={`flex items-center justify-between p-4 border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
+              <div className={`font-semibold ${darkMode ? "text-white" : "text-gray-900"}`}>Agent Workflow</div>
+              <div className="flex items-center gap-3">
+                <div className={`flex items-center gap-1.5 text-xs ${isVizStreaming ? (darkMode ? "text-green-400" : "text-green-600") : (darkMode ? "text-gray-400" : "text-gray-500")}`}>
+                  {isVizStreaming ? <Loader2 className="w-3 h-3 animate-spin" /> : <div className={`w-2 h-2 rounded-full ${darkMode ? "bg-gray-500" : "bg-gray-400"}`}></div>}
+                  {isVizStreaming ? "Live" : "Idle"}
+                </div>
+                <button
+                  onClick={() => setIsVizPanelCollapsed(true)}
+                  className={`p-1.5 rounded-lg ${darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-200 text-gray-600"}`}
+                  title="Close panel"
+                >
+                  <ChevronsRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
 
+            {/* Vertical scrollable list of agent boxes */}
+            <div className="flex-1 p-3 overflow-y-auto scrollbar-hide">
+              {Object.keys(agents).length === 0 ? (
+                <div className={`text-sm ${darkMode ? "text-gray-500" : "text-gray-400"} italic p-3`}>
+                  {isVizStreaming ? "Waiting for agent updates..." : "No agents active"}
+                </div>
+              ) : (
+                <div>
+                  {Object.entries(agents).map(([name, data]) => (
+                    <AgentBox key={name} name={name} data={data} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className={`mt-auto p-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"} text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
+              This panel shows the real-time progress of AI agents as they work to resolve your query.
+            </div>
+          </div>
+        )}
+      </div>
+      {/* -------------------------------------- */}
+
+
+      {/* Settings Modal (Existing) */}
       {showSettings && (
         <div
           role="dialog"
