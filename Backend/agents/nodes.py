@@ -1,5 +1,10 @@
 import json
 import os
+import asyncio
+import sqlite3
+import csv
+from typing import List, Dict, Any
+from pathlib import Path
 from agents.states import AgentState
 from agents.utils import call_deepseek_chat
 from agents.prompts import (
@@ -7,7 +12,10 @@ from agents.prompts import (
     SUPERVISOR_ROUTING_PROMPT,
     CATEGORY_SELECTION_PROMPT,
     DOCUMENT_SELECTION_PROMPT,
-    FINAL_ANSWER_PROMPT
+    FINAL_ANSWER_PROMPT,
+    SUBQUERY_GENERATION_PROMPT,
+    SQL_GENERATION_PROMPT,
+    PERSONALIZED_FINAL_ANSWER_PROMPT
 )
 
 def supervisor_node(state: AgentState) -> AgentState:
@@ -362,9 +370,224 @@ Please provide a helpful answer to the user's query based on the above informati
         }
 
 
+def get_table_schemas() -> Dict[str, List[str]]:
+    """
+    Read CSV files and extract table schemas (column names).
+    
+    Returns:
+        Dictionary mapping table names to their column lists
+    """
+    data_dir = Path(__file__).parent.parent / "data" / "personalised_agent"
+    schemas = {}
+    
+    csv_files = {
+        "user_info": "user_info.csv",
+        "orders": "orders.csv",
+        "order_items": "order_items.csv",
+        "transactions": "transactions.csv",
+        "cart": "cart.csv",
+        "addresses": "addresses.csv",
+        "returns": "returns.csv"
+    }
+    
+    for table_name, csv_file in csv_files.items():
+        csv_path = data_dir / csv_file
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                headers = next(reader)
+                schemas[table_name] = headers
+        except Exception as e:
+            print(f"Warning: Could not read schema for {table_name}: {e}")
+    
+    return schemas
+
+
+def format_table_schemas(schemas: Dict[str, List[str]]) -> str:
+    """
+    Format table schemas into a readable string for the LLM.
+    
+    Args:
+        schemas: Dictionary mapping table names to column lists
+        
+    Returns:
+        Formatted string describing all tables and columns
+    """
+    formatted = []
+    for table_name, columns in schemas.items():
+        columns_str = ", ".join(columns)
+        formatted.append(f"Table: {table_name}\nColumns: {columns_str}")
+    
+    return "\n\n".join(formatted)
+
+
+async def generate_sql_from_subquery(subquery: str, table_schemas_str: str) -> Dict[str, Any]:
+    """
+    Generate SQL query from a subquery using DeepSeek (async).
+    
+    Args:
+        subquery: Natural language subquery
+        table_schemas_str: Formatted string of table schemas
+        
+    Returns:
+        Dictionary with subquery, generated SQL, and any errors
+    """
+    try:
+        sql_prompt = SQL_GENERATION_PROMPT.format(
+            table_schemas=table_schemas_str,
+            subquery=subquery
+        )
+        
+        # Call DeepSeek synchronously but in an async context
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: call_deepseek_chat(
+                messages=[
+                    {"role": "system", "content": "You are a SQL query generation expert."},
+                    {"role": "user", "content": sql_prompt}
+                ],
+                temperature=0.1
+            )
+        )
+        
+        # Parse the SQL response
+        cleaned_response = response.strip()
+        if cleaned_response.startswith("```"):
+            cleaned_response = cleaned_response.split("```")[1]
+            if cleaned_response.startswith("json"):
+                cleaned_response = cleaned_response[4:]
+            cleaned_response = cleaned_response.strip()
+        
+        sql_result = json.loads(cleaned_response)
+        sql_query = sql_result.get("sql_query", "")
+        
+        return {
+            "subquery": subquery,
+            "sql_query": sql_query,
+            "error": None
+        }
+    
+    except Exception as e:
+        return {
+            "subquery": subquery,
+            "sql_query": None,
+            "error": str(e)
+        }
+
+
+async def execute_sql_query(sql_query: str, db_path: Path) -> Dict[str, Any]:
+    """
+    Execute SQL query on SQLite database (async).
+    
+    Args:
+        sql_query: SQL query to execute
+        db_path: Path to SQLite database
+        
+    Returns:
+        Dictionary with query, results, and any errors
+    """
+    try:
+        # Execute SQL in a thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        
+        def execute():
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row  # Enable column access by name
+            cursor = conn.cursor()
+            cursor.execute(sql_query)
+            rows = cursor.fetchall()
+            
+            # Convert rows to list of dictionaries
+            results = [dict(row) for row in rows]
+            conn.close()
+            return results
+        
+        results = await loop.run_in_executor(None, execute)
+        
+        return {
+            "sql_query": sql_query,
+            "results": results,
+            "error": None
+        }
+    
+    except Exception as e:
+        return {
+            "sql_query": sql_query,
+            "results": None,
+            "error": str(e)
+        }
+
+
+def load_csv_data_to_db(data_dir: Path, db_path: Path):
+    """
+    Load CSV data into SQLite database tables if not already present.
+    
+    Args:
+        data_dir: Directory containing CSV files
+        db_path: Path to SQLite database
+    """
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    
+    csv_files = {
+        "user_info": "user_info.csv",
+        "orders": "orders.csv",
+        "order_items": "order_items.csv",
+        "transactions": "transactions.csv",
+        "cart": "cart.csv",
+        "addresses": "addresses.csv",
+        "returns": "returns.csv"
+    }
+    
+    for table_name, csv_file in csv_files.items():
+        # Check if table exists and has data
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+        if cursor.fetchone():
+            cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+            count = cursor.fetchone()[0]
+            if count > 0:
+                continue  # Table exists and has data
+        
+        # Read CSV and create table
+        csv_path = data_dir / csv_file
+        try:
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                headers = reader.fieldnames
+                
+                # Drop table if exists
+                cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                
+                # Create table with all columns as TEXT for simplicity
+                columns = ", ".join([f"{col} TEXT" for col in headers])
+                cursor.execute(f"CREATE TABLE {table_name} ({columns})")
+                
+                # Insert data
+                placeholders = ", ".join(["?" for _ in headers])
+                for row in reader:
+                    values = [row[col] for col in headers]
+                    cursor.execute(f"INSERT INTO {table_name} VALUES ({placeholders})", values)
+                
+                print(f"Loaded {table_name} from {csv_file}")
+        
+        except Exception as e:
+            print(f"Error loading {table_name}: {e}")
+    
+    conn.commit()
+    conn.close()
+
+
 def personalised_rag_node(state: AgentState) -> AgentState:
     """
     Personalised RAG Agent - Answers questions on personal information from the SQLite database.
+    
+    This agent implements a multi-step RAG approach:
+    1. Get table schemas from CSV files
+    2. Generate subqueries using LLM (max 5)
+    3. Generate SQL queries from subqueries in parallel using asyncio
+    4. Execute SQL queries in parallel
+    5. Generate final answer from aggregated results
     
     This agent handles queries about:
     - Order status and history
@@ -384,22 +607,149 @@ def personalised_rag_node(state: AgentState) -> AgentState:
     
     personalised_rag_messages.append("Processing query about personal user data...")
     
-    # TODO: Implement functionality to:
-    # 1. Extract user identifier from query or session
-    # 2. Query SQLite database for user-specific information
-    # 3. Retrieve relevant order, transaction, and account data
-    # 4. Generate personalized response based on user's data
+    try:
+        # Define paths
+        data_dir = Path(__file__).parent.parent / "data" / "personalised_agent"
+        db_path = Path(__file__).parent.parent / "hackfest.db"
+        
+        # Load CSV data into database if needed
+        personalised_rag_messages.append("Setting up database from CSV files...")
+        load_csv_data_to_db(data_dir, db_path)
+        
+        # ===== STEP 1: Get table schemas =====
+        personalised_rag_messages.append("Step 1: Loading table schemas...")
+        schemas = get_table_schemas()
+        table_schemas_str = format_table_schemas(schemas)
+        personalised_rag_messages.append(f"Loaded {len(schemas)} tables")
+        
+        # ===== STEP 2: Generate subqueries =====
+        personalised_rag_messages.append("Step 2: Generating subqueries...")
+        
+        subquery_prompt = SUBQUERY_GENERATION_PROMPT.format(
+            table_schemas=table_schemas_str
+        )
+        
+        subquery_response = call_deepseek_chat(
+            messages=[
+                {"role": "system", "content": "You are an intelligent query decomposition agent."},
+                {"role": "user", "content": f"User Query: {user_query}\n\n{subquery_prompt}"}
+            ],
+            temperature=0.2
+        )
+        
+        # Parse subquery response
+        cleaned_response = subquery_response.strip()
+        if cleaned_response.startswith("```"):
+            cleaned_response = cleaned_response.split("```")[1]
+            if cleaned_response.startswith("json"):
+                cleaned_response = cleaned_response[4:]
+            cleaned_response = cleaned_response.strip()
+        
+        subquery_result = json.loads(cleaned_response)
+        subqueries = subquery_result.get("subqueries", [])[:5]  # Max 5 subqueries
+        
+        personalised_rag_messages.append(f"Generated {len(subqueries)} subqueries")
+        
+        if not subqueries:
+            raise ValueError("No subqueries generated")
+        
+        # ===== STEP 3: Generate SQL queries in parallel =====
+        personalised_rag_messages.append("Step 3: Generating SQL queries in parallel...")
+        
+        async def generate_all_sql():
+            tasks = [
+                generate_sql_from_subquery(subquery, table_schemas_str)
+                for subquery in subqueries
+            ]
+            return await asyncio.gather(*tasks)
+        
+        # Run async tasks
+        sql_results = asyncio.run(generate_all_sql())
+        
+        # Filter out failed SQL generations
+        valid_sql_queries = [
+            result for result in sql_results
+            if result["sql_query"] and not result["error"]
+        ]
+        
+        personalised_rag_messages.append(f"Generated {len(valid_sql_queries)} valid SQL queries")
+        
+        if not valid_sql_queries:
+            raise ValueError("No valid SQL queries generated")
+        
+        # ===== STEP 4: Execute SQL queries in parallel =====
+        personalised_rag_messages.append("Step 4: Executing SQL queries in parallel...")
+        
+        async def execute_all_queries():
+            tasks = [
+                execute_sql_query(result["sql_query"], db_path)
+                for result in valid_sql_queries
+            ]
+            return await asyncio.gather(*tasks)
+        
+        # Run async tasks
+        query_results = asyncio.run(execute_all_queries())
+        
+        # Aggregate successful results
+        all_results = []
+        for idx, result in enumerate(query_results):
+            if result["results"] is not None and not result["error"]:
+                all_results.append({
+                    "subquery": valid_sql_queries[idx]["subquery"],
+                    "sql_query": result["sql_query"],
+                    "results": result["results"]
+                })
+                personalised_rag_messages.append(
+                    f"Query {idx+1} returned {len(result['results'])} rows"
+                )
+            else:
+                personalised_rag_messages.append(
+                    f"Query {idx+1} failed: {result['error']}"
+                )
+        
+        # ===== STEP 5: Generate final answer =====
+        personalised_rag_messages.append("Step 5: Generating final answer...")
+        
+        # Format results for LLM
+        results_context = "\n\n".join([
+            f"Subquery: {r['subquery']}\n"
+            f"SQL: {r['sql_query']}\n"
+            f"Results ({len(r['results'])} rows):\n{json.dumps(r['results'], indent=2)}"
+            for r in all_results
+        ])
+        
+        final_answer_prompt = f"""User Query: {user_query}
+
+Database Query Results:
+{results_context}
+
+Please provide a helpful, personalized answer based on the above data."""
+        
+        final_response = call_deepseek_chat(
+            messages=[
+                {"role": "system", "content": PERSONALIZED_FINAL_ANSWER_PROMPT},
+                {"role": "user", "content": final_answer_prompt}
+            ],
+            temperature=0.3
+        )
+        
+        personalised_rag_messages.append("Response generated successfully")
+        
+        return {
+            **state,
+            "personalised_rag_messages": personalised_rag_messages,
+            "final_response": final_response
+        }
     
-    # Placeholder response for now
-    final_response = f"[Personalised RAG Agent Response]\n\nThank you for your query: '{user_query}'\n\nThis agent will provide personalized information from your account. The actual implementation will include:\n- Database queries for order status\n- Transaction history retrieval\n- Account details lookup\n- Personalized recommendations\n\nThis is a template response that will be customized later."
-    
-    personalised_rag_messages.append("Response generated successfully")
-    
-    return {
-        **state,
-        "personalised_rag_messages": personalised_rag_messages,
-        "final_response": final_response
-    }
+    except Exception as e:
+        personalised_rag_messages.append(f"Error processing query: {str(e)}")
+        fallback_response = f"I apologize, but I encountered an error while processing your personal data query. Please try rephrasing your question or contact support if the issue persists. Error: {str(e)}"
+        
+        return {
+            **state,
+            "personalised_rag_messages": personalised_rag_messages,
+            "final_response": fallback_response
+        }
 
 
 def escalation_node(state: AgentState) -> AgentState:

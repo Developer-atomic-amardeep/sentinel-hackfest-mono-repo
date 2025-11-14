@@ -1,5 +1,6 @@
 import sqlite3
 import random
+import csv
 from pathlib import Path
 
 
@@ -171,6 +172,98 @@ def create_test_user():
         conn.close()
 
 
+def load_personalised_agent_csv_data():
+    """
+    Load CSV files from data/personalised_agent directory into SQLite tables.
+    Avoids duplication by checking if tables already exist and have data.
+    """
+    data_dir = Path(__file__).parent.parent.parent / "data" / "personalised_agent"
+    
+    if not data_dir.exists():
+        print(f"Warning: Personalised agent data directory not found at {data_dir}")
+        return
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Map of table names to CSV filenames
+    csv_files = {
+        "user_info": "user_info.csv",
+        "orders": "orders.csv",
+        "order_items": "order_items.csv",
+        "transactions": "transactions.csv",
+        "cart": "cart.csv",
+        "addresses": "addresses.csv",
+        "returns": "returns.csv"
+    }
+    
+    loaded_count = 0
+    skipped_count = 0
+    
+    for table_name, csv_file in csv_files.items():
+        csv_path = data_dir / csv_file
+        
+        if not csv_path.exists():
+            print(f"Warning: CSV file not found: {csv_file}")
+            continue
+        
+        try:
+            # Check if table exists and has data
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                (table_name,)
+            )
+            table_exists = cursor.fetchone() is not None
+            
+            if table_exists:
+                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                row_count = cursor.fetchone()[0]
+                
+                if row_count > 0:
+                    print(f"Skipping {table_name} - already has {row_count} rows")
+                    skipped_count += 1
+                    continue
+            
+            # Read CSV and create/load table
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                headers = reader.fieldnames
+                
+                if not headers:
+                    print(f"Warning: {csv_file} has no headers, skipping")
+                    continue
+                
+                # Drop table if exists (to reload fresh data)
+                cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+                
+                # Create table with all columns as TEXT for simplicity
+                columns = ", ".join([f'"{col}" TEXT' for col in headers])
+                cursor.execute(f"CREATE TABLE {table_name} ({columns})")
+                
+                # Insert data
+                placeholders = ", ".join(["?" for _ in headers])
+                insert_count = 0
+                
+                for row in reader:
+                    values = [row.get(col, '') for col in headers]
+                    cursor.execute(
+                        f"INSERT INTO {table_name} VALUES ({placeholders})",
+                        values
+                    )
+                    insert_count += 1
+                
+                conn.commit()
+                print(f"Loaded {table_name} from {csv_file} - {insert_count} rows")
+                loaded_count += 1
+        
+        except Exception as e:
+            conn.rollback()
+            print(f"Error loading {table_name} from {csv_file}: {e}")
+    
+    conn.close()
+    print(f"CSV data ingestion complete: {loaded_count} tables loaded, {skipped_count} tables skipped")
+
+
 def initialize_database():
     """Initialize the database if it doesn't exist"""
     if not DB_PATH.exists():
@@ -188,4 +281,7 @@ def initialize_database():
     
     # Create test user
     create_test_user()
+    
+    # Load personalised agent CSV data
+    load_personalised_agent_csv_data()
 

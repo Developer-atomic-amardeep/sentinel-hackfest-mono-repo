@@ -1,0 +1,5 @@
+cart_item_id,user_id,product_id,product_name,product_category,quantity,unit_price,added_date,last_modified_date,saved_for_later
+1,1,PROD-1002,Smartphone Case,Accessories,1,187.97,2025-11-09 20:00:00,2025-11-10 05:00:00,0
+2,1,PROD-1009,Yoga Mat,Fitness,1,151.72,2025-11-12 23:00:00,2025-11-13 05:00:00,0
+3,1,PROD-1004,Cotton T-Shirt,Apparel,3,154.48,2025-11-04 20:00:00,2025-11-06 18:00:00,1
+4,1,PROD-1004,Cotton T-Shirt,Apparel,2,151.42,2025-11-12 21:00:00,2025-11-14 18:00:00,1

@@ -1,0 +1,2 @@
+user_id,name,email,phone_number,date_joined,account_status,membership_tier,preferred_language,preferred_currency
+1,Amit Sharma,amit.sharma@example.com,+919812345678,2024-01-15,active,basic,en-US,USD
