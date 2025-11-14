@@ -28,6 +28,7 @@ class AgentState(TypedDict):
         analysis: Detailed analysis text from the triage agent
         next_agent: The agent to route to (general_information, personalised_rag, escalation)
         final_response: The final response to return to the user
+        greeting_message: Initial greeting message shown to the user
     """
     user_query: str
     intent: Optional[str]
@@ -40,6 +41,7 @@ class AgentState(TypedDict):
     analysis: Optional[str]
     next_agent: Optional[str]
     final_response: Optional[str]
+    greeting_message: Optional[str]
 
 
 class StreamingState(TypedDict, total=False):
