@@ -1,0 +1,4 @@
+return_id,order_id,user_id,return_date,return_status,return_reason,refund_amount,refund_method,refund_processed_date,return_tracking_number,notes
+RET-2025-961168,ORD-2025-892495,1,2025-09-17,requested,wrong_size,402.21,store_credit,,,
+RET-2025-325127,ORD-2024-456778,1,2025-01-17,requested,damaged,568.07,bank_transfer,,,
+RET-2025-195119,ORD-2025-514850,1,2025-08-12,requested,defective,1901.68,store_credit,,,
