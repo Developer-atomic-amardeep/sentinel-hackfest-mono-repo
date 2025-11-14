@@ -26,9 +26,11 @@ def supervisor_node(state: AgentState) -> AgentState:
     # Log supervisor activity
     if not state.get("intent"):
         # Initial pass - supervisor receives the query
+        greeting_message = "Hello! We have received your query and are currently performing analysis in our system using our highly specialized AI agents. Please wait while we process your request..."
         supervisor_messages.append("Received user query, routing to triage agent")
         return {
             **state,
+            "greeting_message": greeting_message,
             "supervisor_messages": supervisor_messages
         }
     else:
