@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Lock, CheckCircle2, Headset, MessageSquare, PhoneCall } from 'lucide-react'
 import { useToast } from "@/hooks/use-toast"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+
 
 interface LoginPageProps {
   onLoginSuccess: (userInfo: any) => void

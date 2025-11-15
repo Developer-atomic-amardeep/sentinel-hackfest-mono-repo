@@ -10,8 +10,9 @@ import { useToast } from "@/hooks/use-toast"
 // We will integrate its logic directly into this component.
 
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:9000"
-const AGORA_CHANNEL = process.env.NEXT_PUBLIC_AGORA_CHANNEL || "hackfest-sentinel"
+const API_URL = process.env.NEXT_PUBLIC_API_URL!;
+const AGORA_CHANNEL = process.env.NEXT_PUBLIC_AGORA_CHANNEL!;
+
 
 interface ChatMessage {
   id: string
